@@ -3682,7 +3682,7 @@ async function ensureDefaultOwner() {
 
     const password = String(
       process.env.OWNER_PASSWORD || ""
-    );
+    ).trim();
 
     const name = String(
       process.env.OWNER_NAME ||
@@ -3761,7 +3761,7 @@ async function ensureDefaultOwner() {
     // FIND EXISTING OWNER
     // --------------------------------------------------------
 
-    const owner = await first(
+    let owner = await first(
       `
       SELECT
         id,
@@ -3770,10 +3770,11 @@ async function ensureDefaultOwner() {
         role,
         password_hash
       FROM users
-      WHERE role = 'Owner'
-      ORDER BY id ASC
+      WHERE role = 'Owner' OR LOWER(username) = LOWER(?)
+      ORDER BY (role = 'Owner') DESC, id ASC
       LIMIT 1
-      `
+      `,
+      [username]
     );
 
     // --------------------------------------------------------
@@ -3795,46 +3796,70 @@ async function ensureDefaultOwner() {
           12
         );
 
-      const [result] =
-        await db.execute(
-          `
-          INSERT INTO users
-          (
-            username,
-            password_hash,
-            name,
-            role
-          )
-          VALUES (?, ?, ?, 'Owner')
-          `,
-          [
-            username,
-            passwordHash,
-            name,
-          ]
+      try {
+        const [result] =
+          await db.execute(
+            `
+            INSERT INTO users
+            (
+              username,
+              password_hash,
+              name,
+              role
+            )
+            VALUES (?, ?, ?, 'Owner')
+            `,
+            [
+              username,
+              passwordHash,
+              name,
+            ]
+          );
+
+        console.log(
+          "======================================"
         );
 
-      console.log(
-        "======================================"
-      );
+        console.log(
+          `✅ Owner created successfully.`
+        );
 
-      console.log(
-        `✅ Owner created successfully.`
-      );
+        console.log(
+          `👤 Owner ID: ${result.insertId}`
+        );
 
-      console.log(
-        `👤 Owner ID: ${result.insertId}`
-      );
+        console.log(
+          `👤 Owner username: ${username}`
+        );
 
-      console.log(
-        `👤 Owner username: ${username}`
-      );
+        console.log(
+          "======================================"
+        );
 
-      console.log(
-        "======================================"
-      );
-
-      return true;
+        return true;
+      } catch (insertError) {
+        if (insertError?.code === "ER_DUP_ENTRY") {
+          console.warn(
+            "⚠️ Owner insert hit duplicate key, fetching existing record..."
+          );
+          owner = await first(
+            `
+            SELECT
+              id,
+              username,
+              name,
+              role,
+              password_hash
+            FROM users
+            WHERE LOWER(username) = LOWER(?)
+            LIMIT 1
+            `,
+            [username]
+          );
+        } else {
+          throw insertError;
+        }
+      }
     }
 
     // --------------------------------------------------------
@@ -4168,50 +4193,4 @@ process.on(
 // START
 // ============================================================
 
-startServer();
-
-
-// ============================================================
-// GRACEFUL SHUTDOWN
-// ============================================================
-
-async function shutdown(
-  signal
-) {
-  console.log(
-    `${signal} received. Closing server...`
-  );
-
-  try {
-    await db.end();
-
-    console.log(
-      "Database pool closed."
-    );
-
-    process.exit(0);
-  } catch (error) {
-    console.error(
-      "Error while closing database:",
-      error
-    );
-
-    process.exit(1);
-  }
-}
-
-process.on(
-  "SIGTERM",
-  () => shutdown("SIGTERM")
-);
-
-process.on(
-  "SIGINT",
-  () => shutdown("SIGINT")
-);
-
-// ============================================================
-// START
-// ============================================================
-
-startServer();
+startServer();
