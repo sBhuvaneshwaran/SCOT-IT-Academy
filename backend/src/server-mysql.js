@@ -4073,61 +4073,102 @@ app.use(
 
 async function startServer() {
   try {
-    console.log("Checking database connection...");
+    console.log("");
+    console.log("======================================");
+    console.log("SCOT IT Academy API - Starting...");
+    console.log("======================================");
 
-    await db.query("SELECT 1");
+    // STEP 1:
+    // Connect to MySQL and create all required tables.
+    await initializeSchema();
 
-    console.log(
-      "Database connection successful."
-    );
+    console.log("");
+    console.log("✅ Database schema is ready.");
 
+    // STEP 2:
+    // Create or synchronize SCOT Owner.
     await ensureDefaultOwner();
 
-    const PORT =
-      process.env.PORT || 10000;
+    console.log("");
+    console.log("✅ Owner account is ready.");
+
+    // STEP 3:
+    // Start Express.
+    const PORT = Number(
+      process.env.PORT || 10000
+    );
 
     app.listen(
       PORT,
       "0.0.0.0",
       () => {
         console.log("");
-        console.log(
-          "======================================"
-        );
-        console.log(
-          "SCOT IT Academy API"
-        );
-        console.log(
-          `Server running on port ${PORT}`
-        );
-        console.log(
-          "Health: /health"
-        );
-        console.log(
-          "Students: /api/students"
-        );
-        console.log(
-          "Enquiries: /api/enquiries"
-        );
-        console.log(
-          "Dashboard: /api/dashboard"
-        );
-        console.log(
-          "======================================"
-        );
+        console.log("======================================");
+        console.log("🚀 SCOT IT Academy API");
+        console.log(`🚀 Server running on port ${PORT}`);
+        console.log("❤️ Health: /health");
+        console.log("👨‍🎓 Students: /api/students");
+        console.log("📋 Enquiries: /api/enquiries");
+        console.log("📊 Dashboard: /api/dashboard");
+        console.log("======================================");
+        console.log("");
       }
     );
 
   } catch (error) {
-    console.error(
-      "❌ Server startup failed:"
-    );
-
+    console.error("");
+    console.error("❌ SERVER STARTUP FAILED");
+    console.error("======================================");
     console.error(error);
+    console.error("======================================");
 
     process.exit(1);
   }
 }
+
+// ============================================================
+// GRACEFUL SHUTDOWN
+// ============================================================
+
+async function shutdown(signal) {
+  console.log(
+    `${signal} received. Closing server...`
+  );
+
+  try {
+    await db.end();
+
+    console.log(
+      "Database pool closed."
+    );
+
+    process.exit(0);
+
+  } catch (error) {
+    console.error(
+      "Error while closing database:",
+      error
+    );
+
+    process.exit(1);
+  }
+}
+
+process.on(
+  "SIGTERM",
+  () => shutdown("SIGTERM")
+);
+
+process.on(
+  "SIGINT",
+  () => shutdown("SIGINT")
+);
+
+// ============================================================
+// START
+// ============================================================
+
+startServer();
 
 
 // ============================================================
