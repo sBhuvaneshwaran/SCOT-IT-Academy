@@ -856,7 +856,7 @@ SCOT IT Academy
 
 Your production React frontend should use:
 
-https://scot-it-academy-node.onrender.com
+https://scot-it-academy-1.onrender.com
 
 Then:
 

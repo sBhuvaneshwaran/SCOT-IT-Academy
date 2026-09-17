@@ -335,7 +335,7 @@ const persistDummyData =
 
 const api = axios.create({
   baseURL:
-    "https://scot-it-academy-node.onrender.com/api",
+    "https://scot-it-academy-1.onrender.com/api",
   headers: {
     "Content-Type": "application/json",
   },
