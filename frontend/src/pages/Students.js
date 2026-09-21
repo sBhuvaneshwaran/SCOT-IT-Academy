@@ -882,9 +882,12 @@ export default function Students() {
           error.response?.data
         );
 
-        setMessage(
-          "Unable to update student. Please check the API connection."
-        );
+        const apiMessage =
+          error?.response?.data?.message ||
+          error?.message ||
+          "Unable to update student. Please check the API connection.";
+
+        setMessage(apiMessage);
       }
 
       setSaving(false);
@@ -938,9 +941,12 @@ export default function Students() {
         error.response?.data
       );
 
-      setMessage(
-        "Unable to save student. Please check the API connection."
-      );
+      const apiMessage =
+        error?.response?.data?.message ||
+        error?.message ||
+        "Unable to save student. Please check the API connection.";
+
+      setMessage(apiMessage);
     }
 
     setSaving(false);

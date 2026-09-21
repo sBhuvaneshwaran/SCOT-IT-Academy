@@ -448,13 +448,10 @@ export default function AddEnquiry() {
         error?.response?.data?.message ||
         error?.response?.data?.detail ||
         error?.response?.data?.error ||
-        "";
+        error?.message ||
+        "Unable to save enquiry. Please check the API connection.";
 
-      setMsg(
-        apiMessage ||
-          "Unable to save enquiry. Please check the API connection."
-      );
-
+      setMsg(apiMessage);
       setMessageType("error");
     } finally {
       setSaving(false);

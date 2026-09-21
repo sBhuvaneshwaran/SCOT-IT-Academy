@@ -489,7 +489,9 @@ app.post("/api/categories", auth, (req, res) => {
   const db = readDb();
   const name = normalizeString(req.body?.name || req.body?.category || "");
   if (!name) return res.status(400).json({ message: "Category name is required." });
-  if (!db.categories.includes(name)) db.categories.push(name);
+  const exists = db.categories.some((item) => String(item).trim().toLowerCase() === name.toLowerCase());
+  if (exists) return res.status(409).json({ message: "This category already exists." });
+  db.categories.push(name);
   writeDb(db);
   return res.json({ id: name, name });
 });
@@ -499,6 +501,8 @@ app.patch("/api/categories/:id", auth, (req, res) => {
   const oldName = req.params.id;
   const newName = normalizeString(req.body?.name || req.body?.category || "");
   if (!newName) return res.status(400).json({ message: "Category name is required." });
+  const duplicate = db.categories.some((name) => name.toLowerCase() === newName.toLowerCase() && name !== oldName);
+  if (duplicate) return res.status(409).json({ message: "This category already exists." });
   db.categories = db.categories.map((name) => (name === oldName ? newName : name));
   writeDb(db);
   return res.json({ id: newName, name: newName });

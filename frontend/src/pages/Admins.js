@@ -32,26 +32,47 @@ export default function Admins() {
     const trimmedUsername = username.trim();
     const trimmedPassword = password.trim();
 
-    if (!trimmedName || !trimmedUsername || !trimmedPassword) return;
+    if (!trimmedName || !trimmedUsername || !trimmedPassword) {
+      window.alert("Admin name, username and password are required.");
+      return;
+    }
 
-    await adminApi.create({ name: trimmedName, username: trimmedUsername, password: trimmedPassword });
-    setName(""); setUsername(""); setPassword(""); setFormOpen(false); load();
+    try {
+      await adminApi.create({ name: trimmedName, username: trimmedUsername, password: trimmedPassword });
+      setName(""); setUsername(""); setPassword(""); setFormOpen(false); load();
+    } catch (error) {
+      const message = error?.response?.data?.message || error?.message || "Unable to add admin.";
+      window.alert(message);
+    }
   }
 
   async function update() {
     const trimmedName = name.trim();
     const trimmedUsername = username.trim();
     const trimmedPassword = password.trim();
-    if (!trimmedName || !trimmedUsername || !trimmedPassword) return;
+    if (!trimmedName || !trimmedUsername || !trimmedPassword) {
+      window.alert("Admin name, username and password are required.");
+      return;
+    }
 
-    await adminApi.update(editing.id, { name: trimmedName, username: trimmedUsername, password: trimmedPassword });
-    setEditing(null); setName(""); setUsername(""); setPassword(""); load();
+    try {
+      await adminApi.update(editing.id, { name: trimmedName, username: trimmedUsername, password: trimmedPassword });
+      setEditing(null); setName(""); setUsername(""); setPassword(""); load();
+    } catch (error) {
+      const message = error?.response?.data?.message || error?.message || "Unable to update admin.";
+      window.alert(message);
+    }
   }
 
   async function remove(admin) {
     if (!window.confirm(`Delete admin ${admin.name}?`)) return;
-    await adminApi.remove(admin.id);
-    load();
+    try {
+      await adminApi.remove(admin.id);
+      load();
+    } catch (error) {
+      const message = error?.response?.data?.message || error?.message || "Unable to delete admin.";
+      window.alert(message);
+    }
   }
 
   return <Panel title="Admins" subtitle="Manage enquiry administrators" action={<div className="inline-form"><input value={query} onChange={event => setQuery(event.target.value)} placeholder="Search admin..." /><button className="primary" onClick={() => {setName(""); setUsername(""); setPassword(""); setFormOpen(true);}}>+ Add Admin</button>{editing && <><input value={name} onChange={event => setName(event.target.value)} placeholder="Edit admin name" /><input value={username} onChange={event => setUsername(event.target.value)} placeholder="Edit username" /><input type="password" value={password} onChange={event => setPassword(event.target.value)} placeholder="Edit password" /><button className="primary" onClick={update}>Update Admin</button><button className="secondary" onClick={() => {setEditing(null); setName(""); setUsername(""); setPassword("");}}>Cancel</button></>}</div>}>

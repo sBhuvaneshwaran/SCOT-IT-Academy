@@ -2262,13 +2262,33 @@ app.post(
         });
       }
 
-      await db.execute(
-        `
-        INSERT IGNORE INTO categories(name)
-        VALUES(?)
-        `,
-        [name]
-      );
+      const existing =
+        await first(
+          `
+          SELECT
+            id
+          FROM categories
+          WHERE LOWER(name) = LOWER(?)
+          LIMIT 1
+          `,
+          [name]
+        );
+
+      if (existing) {
+        return res.status(409).json({
+          message:
+            "This category already exists.",
+        });
+      }
+
+      const [result] =
+        await db.execute(
+          `
+          INSERT INTO categories(name)
+          VALUES(?)
+          `,
+          [name]
+        );
 
       const row =
         await first(
@@ -2277,16 +2297,26 @@ app.post(
             id,
             name
           FROM categories
-          WHERE name=?
+          WHERE id=?
           LIMIT 1
           `,
-          [name]
+          [result.insertId]
         );
 
       return res.json(
         row
       );
     } catch (error) {
+      if (
+        error?.code ===
+        "ER_DUP_ENTRY"
+      ) {
+        return res.status(409).json({
+          message:
+            "This category already exists.",
+        });
+      }
+
       next(error);
     }
   }
@@ -2334,6 +2364,26 @@ app.patch(
         return res.status(404).json({
           message:
             "Category not found.",
+        });
+      }
+
+      const duplicate =
+        await first(
+          `
+          SELECT
+            id
+          FROM categories
+          WHERE LOWER(name)=LOWER(?)
+            AND id != ?
+          LIMIT 1
+          `,
+          [name, old.id]
+        );
+
+      if (duplicate) {
+        return res.status(409).json({
+          message:
+            "This category already exists.",
         });
       }
 
@@ -4193,4 +4243,4 @@ process.on(
 // START
 // ============================================================
 
-startServer();
+startServer();
