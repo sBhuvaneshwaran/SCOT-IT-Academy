@@ -575,7 +575,7 @@ export default function AddEnquiry() {
 
           <Input
             name="course"
-            label="Type / Course"
+            label="Course"
             value={form.course}
             onChange={change}
             placeholder="Python Full Stack"
