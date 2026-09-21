@@ -1635,15 +1635,13 @@ app.get(
             candidate_name,
             mobile,
             city,
-            degree,
-            passed_year,
+            type,
             category,
             course,
             comments,
             next_followup_date,
             status,
             referred_by,
-            referral_contact,
             created_at,
             updated_at
           FROM enquiries
@@ -1773,14 +1771,8 @@ app.post(
       const city =
         text(b.city);
 
-      const degree =
-        text(b.degree);
-
-      const passedYear =
-        text(
-          b.passed_year ??
-            b.passedYear
-        );
+      const type =
+        text(b.type);
 
       const category =
         text(b.category);
@@ -1808,12 +1800,6 @@ app.post(
             b.referredBy
         );
 
-      const referralContact =
-        text(
-          b.referral_contact ??
-            b.referralContact
-        );
-
       if (!candidateName) {
         return res.status(400).json({
           message:
@@ -1839,18 +1825,16 @@ app.post(
             candidate_name,
             mobile,
             city,
-            degree,
-            passed_year,
+            type,
             category,
             course,
             comments,
             next_followup_date,
             status,
-            referred_by,
-            referral_contact
+            referred_by
           )
           VALUES
-          (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
           `,
           [
             branch,
@@ -1859,17 +1843,16 @@ app.post(
             candidateName,
             mobile,
             city,
-            degree,
-            passedYear,
+            type,
             category,
             course,
             comments,
             followUpDate,
             status,
             referredBy,
-            referralContact,
           ]
         );
+
 
       const row =
         await first(
@@ -1989,17 +1972,10 @@ app.patch(
             old.city
         );
 
-      const degree =
+      const type =
         text(
-          b.degree ??
-            old.degree
-        );
-
-      const passedYear =
-        text(
-          b.passed_year ??
-            b.passedYear ??
-            old.passed_year
+          b.type ??
+            old.type
         );
 
       const category =
@@ -2053,13 +2029,6 @@ app.patch(
             old.referred_by
         );
 
-      const referralContact =
-        text(
-          b.referral_contact ??
-            b.referralContact ??
-            old.referral_contact
-        );
-
       await db.execute(
         `
         UPDATE enquiries
@@ -2070,15 +2039,13 @@ app.patch(
           candidate_name=?,
           mobile=?,
           city=?,
-          degree=?,
-          passed_year=?,
+          type=?,
           category=?,
           course=?,
           comments=?,
           next_followup_date=?,
           status=?,
           referred_by=?,
-          referral_contact=?,
           updated_at=CURRENT_TIMESTAMP
         WHERE id=?
         `,
@@ -2089,18 +2056,17 @@ app.patch(
           candidateName,
           mobile,
           city,
-          degree,
-          passedYear,
+          type,
           category,
           course,
           comments,
           followUpDate,
           status,
           referredBy,
-          referralContact,
           id,
         ]
       );
+
 
       const updated =
         await first(
@@ -3612,10 +3578,7 @@ async function initializeSchema() {
       city VARCHAR(100)
         NOT NULL DEFAULT '',
 
-      degree VARCHAR(150)
-        NOT NULL DEFAULT '',
-
-      passed_year VARCHAR(20)
+      type VARCHAR(100)
         NOT NULL DEFAULT '',
 
       category VARCHAR(150)
@@ -3634,9 +3597,6 @@ async function initializeSchema() {
       referred_by VARCHAR(150)
         NOT NULL DEFAULT '',
 
-      referral_contact VARCHAR(100)
-        NOT NULL DEFAULT '',
-
       created_at TIMESTAMP
         DEFAULT CURRENT_TIMESTAMP,
 
@@ -3650,6 +3610,21 @@ async function initializeSchema() {
     ENGINE=InnoDB
     DEFAULT CHARSET=utf8mb4
   `);
+
+  // Add 'type' column if it doesn't exist (migration for existing DB)
+  try {
+    const [cols] = await db.query(
+      `SHOW COLUMNS FROM enquiries LIKE 'type'`
+    );
+    if (cols.length === 0) {
+      await db.query(
+        `ALTER TABLE enquiries ADD COLUMN type VARCHAR(100) NOT NULL DEFAULT '' AFTER city`
+      );
+      console.log("✅ enquiries.type column added.");
+    }
+  } catch (e) {
+    console.warn("Could not add type column:", e.message);
+  }
 
   // ==========================================================
   // CATEGORIES

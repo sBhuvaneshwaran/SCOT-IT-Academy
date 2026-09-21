@@ -12,34 +12,25 @@ import { Panel } from "../components/Ui";
 // ======================================================
 
 const initialForm = {
-  branch: "",
   admin: "",
   enquiry_date: "",
   candidate_name: "",
   mobile: "",
   city: "",
-  degree: "",
-  passed_year: "",
+  type: "",
   category: "",
   course: "",
   comments: "",
   next_followup_date: "",
   status: "Pending",
   referred_by: "",
-  referral_contact: "",
 };
+
 
 // ======================================================
 // CURRENT YEAR
 // ======================================================
 
-const currentYear = new Date().getFullYear();
-
-// Last 10 years including current year
-const passedOutYears = Array.from(
-  { length: 10 },
-  (_, index) => String(currentYear - index)
-);
 
 // ======================================================
 // DATE ONLY
@@ -320,38 +311,11 @@ export default function AddEnquiry() {
       }
 
       // ----------------------------------------------
-      // VALIDATE REFERRAL CONTACT
-      // ONLY WHEN ENTERED
-      // ----------------------------------------------
-
-      const referralContact = String(
-        form.referral_contact || ""
-      ).trim();
-
-      if (
-        referralContact &&
-        !/^\d{10}$/.test(referralContact)
-      ) {
-        setMsg(
-          "Please enter a valid 10 digit referral contact number."
-        );
-
-        setMessageType("error");
-        setSaving(false);
-
-        return;
-      }
-
-      // ----------------------------------------------
       // CREATE PAYLOAD
       // ----------------------------------------------
 
       const payload = {
         ...form,
-
-        branch: String(
-          form.branch || ""
-        ).trim(),
 
         admin: String(
           form.admin || ""
@@ -371,12 +335,8 @@ export default function AddEnquiry() {
           form.city || ""
         ).trim(),
 
-        degree: String(
-          form.degree || ""
-        ).trim(),
-
-        passed_year: String(
-          form.passed_year || ""
+        type: String(
+          form.type || ""
         ).trim(),
 
         category: String(
@@ -404,8 +364,6 @@ export default function AddEnquiry() {
         referred_by: String(
           form.referred_by || ""
         ).trim(),
-
-        referral_contact: referralContact,
       };
 
       // console.log(
@@ -494,18 +452,6 @@ export default function AddEnquiry() {
 
         <div className="form-grid">
 
-          {/* BRANCH */}
-
-          <Select
-            name="branch"
-            label="Branch *"
-            value={form.branch}
-            onChange={change}
-            options={[
-              "Keelkattalai",
-            ]}
-          />
-
           {/* ADMIN */}
 
           <Select
@@ -561,24 +507,21 @@ export default function AddEnquiry() {
             placeholder="Enter city / place"
           />
 
-          {/* DEGREE */}
-
-          <Input
-            name="degree"
-            label="Degree *"
-            value={form.degree}
-            onChange={change}
-            placeholder="B.E / B.Tech / BCA"
-          />
-
-          {/* PASSED YEAR */}
+          {/* TYPE */}
 
           <Select
-            name="passed_year"
-            label="Passed Out Year *"
-            value={form.passed_year}
+            name="type"
+            label="Type *"
+            value={form.type}
             onChange={change}
-            options={passedOutYears}
+            options={[
+              "Experience",
+              "Students",
+              "Freshers",
+              "Experience in Non IT",
+              "Experience in IT",
+              "Career Gap",
+            ]}
           />
         </div>
 
@@ -696,19 +639,6 @@ export default function AddEnquiry() {
             value={form.referred_by}
             onChange={change}
             options={referrals}
-          />
-
-          {/* REFERRAL CONTACT */}
-
-          <Input
-            name="referral_contact"
-            label="Referral Contact"
-            value={form.referral_contact}
-            onChange={change}
-            maxLength={10}
-            inputMode="numeric"
-            pattern="[0-9]{10}"
-            placeholder="10 digit contact number"
           />
         </div>
 

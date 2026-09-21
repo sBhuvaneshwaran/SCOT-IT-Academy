@@ -10,8 +10,7 @@ const emptyForm = {
   candidate_name: "",
   mobile: "",
   city: "",
-  degree: "",
-  passed_year: "",
+  type: "",
   branch: "",
   category: "",
   course: "",
@@ -97,17 +96,15 @@ function normalize(row = {}) {
       "",
 
     education:
+      row.type ||
       row.education ||
       row.degree ||
       "",
 
-    degree:
-      row.degree ||
+    type:
+      row.type ||
       row.education ||
-      "",
-
-    passed_year:
-      row.passed_year ||
+      row.degree ||
       "",
 
     branch:
@@ -159,10 +156,6 @@ function normalize(row = {}) {
     referred_by:
       row.referred_by ||
       "",
-
-    referral_contact:
-      row.referral_contact ||
-      "",
   };
 }
 
@@ -185,11 +178,8 @@ function enquiryToForm(row = {}) {
     city:
       normalized.city,
 
-    degree:
-      normalized.degree,
-
-    passed_year:
-      normalized.passed_year,
+    type:
+      normalized.type,
 
     branch:
       normalized.branch,
@@ -224,7 +214,7 @@ export default function EnquiryList() {
   const [rows, setRows] = useState([]);
 
   const [q, setQ] = useState("");
-  const [branch, setBranch] = useState("");
+  const [typeFilter, setTypeFilter] = useState("");
   const [category, setCategory] = useState("");
   const [status, setStatus] = useState("");
 
@@ -289,15 +279,14 @@ export default function EnquiryList() {
      FILTER OPTIONS
   ======================================================= */
 
-  const branches = useMemo(() => {
-    return [
-      ...new Set(
-        rows
-          .map((row) => row.branch)
-          .filter(Boolean)
-      ),
-    ].sort();
-  }, [rows]);
+  const types = [
+    "Experience",
+    "Students",
+    "Freshers",
+    "Experience in Non IT",
+    "Experience in IT",
+    "Career Gap",
+  ];
 
   const categories = useMemo(() => {
     return [
@@ -333,9 +322,9 @@ export default function EnquiryList() {
           .toLowerCase()
           .includes(search);
 
-      const matchesBranch =
-        !branch ||
-        row.branch === branch;
+      const matchesType =
+        !typeFilter ||
+        row.type === typeFilter;
 
       const matchesCategory =
         !category ||
@@ -347,7 +336,7 @@ export default function EnquiryList() {
 
       return (
         matchesSearch &&
-        matchesBranch &&
+        matchesType &&
         matchesCategory &&
         matchesStatus
       );
@@ -355,7 +344,7 @@ export default function EnquiryList() {
   }, [
     rows,
     q,
-    branch,
+    typeFilter,
     category,
     status,
   ]);
@@ -605,7 +594,10 @@ export default function EnquiryList() {
                   payload.candidate_name,
 
                 education:
-                  payload.degree,
+                  payload.type,
+
+                type:
+                  payload.type,
 
                 date:
                   payload.next_followup_date,
@@ -654,10 +646,104 @@ export default function EnquiryList() {
 
   function resetFilters() {
     setQ("");
-    setBranch("");
+    setTypeFilter("");
     setCategory("");
     setStatus("");
     setPage(1);
+  }
+
+  /* =======================================================
+     EXPORT TO EXCEL
+  ======================================================= */
+
+  function exportToExcel() {
+    // All rows (not just current page)
+    const data = rows;
+
+    if (!data || data.length === 0) {
+      alert("No enquiry data to export.");
+      return;
+    }
+
+    // Column headers and their data keys
+    const columns = [
+      { header: "S.No",             key: null },
+      { header: "Candidate Name",   key: "candidate_name" },
+      { header: "Mobile",           key: "mobile" },
+      { header: "City",             key: "city" },
+      { header: "Type",             key: "type" },
+      { header: "Category",         key: "category" },
+      { header: "Course",           key: "course" },
+      { header: "Admin",            key: "admin" },
+      { header: "Enquiry Date",     key: "enquiry_date" },
+      { header: "Follow-up Date",   key: "next_followup_date" },
+      { header: "Status",           key: "status" },
+      { header: "Referred By",      key: "referred_by" },
+      { header: "Comments",         key: "comments" },
+    ];
+
+    // Escape a cell value for CSV
+    function csvCell(value) {
+      const str = String(value ?? "").trim();
+      // Wrap in quotes if value contains comma, newline or quote
+      if (
+        str.includes(",") ||
+        str.includes("\n") ||
+        str.includes('"')
+      ) {
+        return `"${str.replace(/"/g, '""')}"`;
+      }
+      return str;
+    }
+
+    // Build header row
+    const headerRow = columns
+      .map((col) => csvCell(col.header))
+      .join(",");
+
+    // Build data rows
+    const dataRows = data.map((row, index) => {
+      return columns
+        .map((col) => {
+          if (col.key === null) {
+            // S.No column
+            return csvCell(index + 1);
+          }
+          return csvCell(row[col.key]);
+        })
+        .join(",");
+    });
+
+    // Combine all rows
+    const csvContent =
+      "\uFEFF" + // BOM for Excel UTF-8
+      [headerRow, ...dataRows].join("\r\n");
+
+    // Create download
+    const blob = new Blob([csvContent], {
+      type: "text/csv;charset=utf-8;",
+    });
+
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+
+    const now = new Date();
+    const dateStr = `${now.getFullYear()}-${String(
+      now.getMonth() + 1
+    ).padStart(2, "0")}-${String(
+      now.getDate()
+    ).padStart(2, "0")}`;
+
+    link.href = url;
+    link.setAttribute(
+      "download",
+      `Enquiries_${dateStr}.csv`
+    );
+
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
   }
 
   /* =======================================================
@@ -670,12 +756,24 @@ export default function EnquiryList() {
         title="All Enquiries"
         subtitle="Manage and track all candidate enquiries"
         action={
-          <a
-            className="primary button-link"
-            href="/add-enquiry"
-          >
-            + Add Enquiry
-          </a>
+          <div style={{ display: "flex", gap: "10px", alignItems: "center", flexWrap: "wrap" }}>
+            <button
+              type="button"
+              className="secondary"
+              onClick={exportToExcel}
+              title="Export all enquiries to Excel"
+              style={{ whiteSpace: "nowrap" }}
+            >
+              ⬇ Export Excel
+            </button>
+
+            <a
+              className="primary button-link"
+              href="/add-enquiry"
+            >
+              + Add Enquiry
+            </a>
+          </div>
         }
       >
         {/* ===============================================
@@ -696,19 +794,19 @@ export default function EnquiryList() {
           />
 
           <select
-            value={branch}
+            value={typeFilter}
             onChange={(e) =>
               updateFilter(
-                setBranch,
+                setTypeFilter,
                 e.target.value
               )
             }
           >
             <option value="">
-              All Branches
+              All Types
             </option>
 
-            {branches.map((item) => (
+            {types.map((item) => (
               <option
                 key={item}
                 value={item}
@@ -765,7 +863,7 @@ export default function EnquiryList() {
           </select>
 
           {(q ||
-            branch ||
+            typeFilter ||
             category ||
             status) && (
             <button
@@ -801,7 +899,7 @@ export default function EnquiryList() {
                   "Candidate",
                   "Mobile",
                   "City",
-                  "Education",
+                  "Type",
                   "Category",
                   "Course",
                   "Admin",
@@ -867,7 +965,7 @@ export default function EnquiryList() {
                     </td>
 
                     <td>
-                      {row.education}
+                      {row.type}
                     </td>
 
                     <td>
@@ -1107,10 +1205,6 @@ export default function EnquiryList() {
                     "City / Place",
                   ],
                   [
-                    "degree",
-                    "Degree",
-                  ],
-                  [
                     "branch",
                     "Branch",
                   ],
@@ -1147,6 +1241,40 @@ export default function EnquiryList() {
                     </div>
                   )
                 )}
+
+                {/* ========================================
+                    TYPE DROPDOWN
+                ======================================== */}
+
+                <div className="form-group">
+                  <label>Type</label>
+
+                  <select
+                    name="type"
+                    value={form.type || ""}
+                    onChange={change}
+                  >
+                    <option value="">
+                      Select Type
+                    </option>
+                    {[
+                      "Experience",
+                      "Students",
+                      "Freshers",
+                      "Experience in Non IT",
+                      "Experience in IT",
+                      "Career Gap",
+                    ].map((item) => (
+                      <option
+                        key={item}
+                        value={item}
+                      >
+                        {item}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
 
                 {/* ========================================
                     FOLLOW-UP DATE
