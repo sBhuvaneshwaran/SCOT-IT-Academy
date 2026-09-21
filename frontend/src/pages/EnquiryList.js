@@ -22,8 +22,6 @@ const emptyForm = {
 
 /* =========================================================
    DATE HELPERS
-   IMPORTANT:
-   <input type="date"> ONLY accepts YYYY-MM-DD
 ========================================================= */
 
 function normalizeDateForInput(value) {
@@ -33,37 +31,68 @@ function normalizeDateForInput(value) {
 
   if (!str) return "";
 
-  // Already correct
   if (/^\d{4}-\d{2}-\d{2}$/.test(str)) {
     return str;
   }
 
-  // ISO:
-  // 2026-09-04T18:30:00.000Z
-  // 2026-09-04T00:00:00
   if (/^\d{4}-\d{2}-\d{2}T/.test(str)) {
     return str.substring(0, 10);
   }
 
-  // MySQL datetime:
-  // 2026-09-04 18:30:00
   if (/^\d{4}-\d{2}-\d{2}\s/.test(str)) {
     return str.substring(0, 10);
   }
 
-  // DD-MM-YYYY
   if (/^\d{2}-\d{2}-\d{4}$/.test(str)) {
     const [day, month, year] = str.split("-");
     return `${year}-${month}-${day}`;
   }
 
-  // DD/MM/YYYY
   if (/^\d{2}\/\d{2}\/\d{4}$/.test(str)) {
     const [day, month, year] = str.split("/");
     return `${year}-${month}-${day}`;
   }
 
   return "";
+}
+
+/* =========================================================
+   TYPE CACHE
+========================================================= */
+
+const TYPE_CACHE_KEY = "scot_it_enquiry_types";
+
+function getAllCachedTypes() {
+  try {
+    return JSON.parse(
+      localStorage.getItem(TYPE_CACHE_KEY) || "{}"
+    );
+  } catch {
+    return {};
+  }
+}
+
+function getCachedType(id) {
+  if (!id) return "";
+
+  return getAllCachedTypes()[String(id)] || "";
+}
+
+function setCachedType(id, type) {
+  if (!id) return;
+
+  const cache = getAllCachedTypes();
+
+  if (type && String(type).trim()) {
+    cache[String(id)] = String(type).trim();
+  } else {
+    delete cache[String(id)];
+  }
+
+  localStorage.setItem(
+    TYPE_CACHE_KEY,
+    JSON.stringify(cache)
+  );
 }
 
 /* =========================================================
@@ -74,6 +103,8 @@ function normalize(row = {}) {
   return {
     ...row,
 
+    // IMPORTANT:
+    // Keep the real database ID for API operations.
     id: row.id,
 
     name:
@@ -97,12 +128,14 @@ function normalize(row = {}) {
 
     education:
       row.type ||
+      getCachedType(row.id) ||
       row.education ||
       row.degree ||
       "",
 
     type:
       row.type ||
+      getCachedType(row.id) ||
       row.education ||
       row.degree ||
       "",
@@ -127,10 +160,6 @@ function normalize(row = {}) {
       row.comments ||
       "",
 
-    /*
-      IMPORTANT:
-      Support all possible backend names.
-    */
     next_followup_date: normalizeDateForInput(
       row.next_followup_date ??
         row.nextFollowUpDate ??
@@ -367,10 +396,14 @@ export default function EnquiryList() {
   }, [page, totalPages]);
 
   const filtered = useMemo(() => {
+    const sorted = [...allFiltered].sort(
+      (a, b) => Number(b.id) - Number(a.id)
+    );
+
     const start =
       (page - 1) * ITEMS_PER_PAGE;
 
-    return allFiltered.slice(
+    return sorted.slice(
       start,
       start + ITEMS_PER_PAGE
     );
@@ -430,11 +463,6 @@ export default function EnquiryList() {
     setMessage("");
     setError("");
 
-    /*
-      First use the row date.
-      This means even if the detail API fails,
-      the date can still appear.
-    */
     let editData = normalize(row);
 
     try {
@@ -454,22 +482,6 @@ export default function EnquiryList() {
 
     const editForm =
       enquiryToForm(editData);
-
-    /*
-      DEBUG:
-      Check browser console.
-      This should print:
-      next_followup_date: "2026-09-04"
-    */
-    // console.log(
-    //   "EDIT ENQUIRY DATA:",
-    //   editData
-    // );
-
-    // console.log(
-    //   "EDIT FORM:",
-    //   editForm
-    // );
 
     setForm(editForm);
 
@@ -491,6 +503,7 @@ export default function EnquiryList() {
 
     setForm((previous) => ({
       ...previous,
+
       [name]:
         name === "next_followup_date"
           ? normalizeDateForInput(value)
@@ -511,6 +524,8 @@ export default function EnquiryList() {
     if (!confirmed) return;
 
     try {
+      // IMPORTANT:
+      // Use the real database ID for delete.
       await enquiryApi.remove(row.id);
 
       setRows((previous) =>
@@ -526,6 +541,10 @@ export default function EnquiryList() {
       ) {
         setPage(page - 1);
       }
+
+      setMessage(
+        "Enquiry deleted successfully."
+      );
     } catch (err) {
       console.error(
         "Delete enquiry failed:",
@@ -549,12 +568,11 @@ export default function EnquiryList() {
     setMessage("");
     setError("");
 
-    /*
-      IMPORTANT:
-      Force date to YYYY-MM-DD before sending.
-    */
     const payload = {
       ...form,
+
+      type:
+        String(form.type || "").trim(),
 
       next_followup_date:
         normalizeDateForInput(
@@ -562,12 +580,9 @@ export default function EnquiryList() {
         ),
     };
 
-    // console.log(
-    //   "UPDATE ENQUIRY PAYLOAD:",
-    //   payload
-    // );
-
     try {
+      // IMPORTANT:
+      // Update using the real database ID.
       const response =
         await enquiryApi.update(
           modal.row.id,
@@ -581,6 +596,13 @@ export default function EnquiryList() {
             ...payload,
           }
         );
+
+      if (payload.type) {
+        setCachedType(
+          modal.row.id,
+          payload.type
+        );
+      }
 
       setRows((previous) =>
         previous.map((row) =>
@@ -606,17 +628,20 @@ export default function EnquiryList() {
         )
       );
 
-      /*
-        Keep edit modal open and show
-        updated value.
-      */
+      const finalUpdated =
+        normalize({
+          ...modal.row,
+          ...updated,
+          ...payload,
+        });
+
       setForm(
-        enquiryToForm(updated)
+        enquiryToForm(finalUpdated)
       );
 
       setModal((previous) => ({
         ...previous,
-        row: updated,
+        row: finalUpdated,
       }));
 
       setMessage(
@@ -653,11 +678,10 @@ export default function EnquiryList() {
   }
 
   /* =======================================================
-     EXPORT TO EXCEL
+     EXPORT TO EXCEL / CSV
   ======================================================= */
 
   function exportToExcel() {
-    // All rows (not just current page)
     const data = rows;
 
     if (!data || data.length === 0) {
@@ -665,84 +689,145 @@ export default function EnquiryList() {
       return;
     }
 
-    // Column headers and their data keys
     const columns = [
-      { header: "S.No",             key: null },
-      { header: "Candidate Name",   key: "candidate_name" },
-      { header: "Mobile",           key: "mobile" },
-      { header: "City",             key: "city" },
-      { header: "Type",             key: "type" },
-      { header: "Category",         key: "category" },
-      { header: "Course",           key: "course" },
-      { header: "Admin",            key: "admin" },
-      { header: "Enquiry Date",     key: "enquiry_date" },
-      { header: "Follow-up Date",   key: "next_followup_date" },
-      { header: "Status",           key: "status" },
-      { header: "Referred By",      key: "referred_by" },
-      { header: "Comments",         key: "comments" },
+      {
+        header: "S.No",
+        key: null,
+      },
+      {
+        header: "Candidate Name",
+        key: "candidate_name",
+      },
+      {
+        header: "Mobile",
+        key: "mobile",
+      },
+      {
+        header: "City",
+        key: "city",
+      },
+      {
+        header: "Type",
+        key: "type",
+      },
+      {
+        header: "Category",
+        key: "category",
+      },
+      {
+        header: "Course",
+        key: "course",
+      },
+      {
+        header: "Admin",
+        key: "admin",
+      },
+      {
+        header: "Enquiry Date",
+        key: "enquiry_date",
+      },
+      {
+        header: "Follow-up Date",
+        key: "next_followup_date",
+      },
+      {
+        header: "Status",
+        key: "status",
+      },
+      {
+        header: "Referred By",
+        key: "referred_by",
+      },
+      {
+        header: "Comments",
+        key: "comments",
+      },
     ];
 
-    // Escape a cell value for CSV
     function csvCell(value) {
-      const str = String(value ?? "").trim();
-      // Wrap in quotes if value contains comma, newline or quote
+      const str =
+        String(value ?? "").trim();
+
       if (
         str.includes(",") ||
         str.includes("\n") ||
         str.includes('"')
       ) {
-        return `"${str.replace(/"/g, '""')}"`;
+        return `"${str.replace(
+          /"/g,
+          '""'
+        )}"`;
       }
+
       return str;
     }
 
-    // Build header row
     const headerRow = columns
-      .map((col) => csvCell(col.header))
+      .map((col) =>
+        csvCell(col.header)
+      )
       .join(",");
 
-    // Build data rows
-    const dataRows = data.map((row, index) => {
-      return columns
-        .map((col) => {
-          if (col.key === null) {
-            // S.No column
-            return csvCell(index + 1);
-          }
-          return csvCell(row[col.key]);
-        })
-        .join(",");
-    });
+    const dataRows = data.map(
+      (row, index) => {
+        return columns
+          .map((col) => {
+            if (col.key === null) {
+              return csvCell(
+                index + 1
+              );
+            }
 
-    // Combine all rows
+            return csvCell(
+              row[col.key]
+            );
+          })
+          .join(",");
+      }
+    );
+
     const csvContent =
-      "\uFEFF" + // BOM for Excel UTF-8
-      [headerRow, ...dataRows].join("\r\n");
+      "\uFEFF" +
+      [headerRow, ...dataRows].join(
+        "\r\n"
+      );
 
-    // Create download
-    const blob = new Blob([csvContent], {
-      type: "text/csv;charset=utf-8;",
-    });
+    const blob = new Blob(
+      [csvContent],
+      {
+        type:
+          "text/csv;charset=utf-8;",
+      }
+    );
 
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
+    const url =
+      URL.createObjectURL(blob);
+
+    const link =
+      document.createElement("a");
 
     const now = new Date();
-    const dateStr = `${now.getFullYear()}-${String(
-      now.getMonth() + 1
-    ).padStart(2, "0")}-${String(
-      now.getDate()
-    ).padStart(2, "0")}`;
+
+    const dateStr =
+      `${now.getFullYear()}-${String(
+        now.getMonth() + 1
+      ).padStart(2, "0")}-${String(
+        now.getDate()
+      ).padStart(2, "0")}`;
 
     link.href = url;
+
     link.setAttribute(
       "download",
       `Enquiries_${dateStr}.csv`
     );
 
     document.body.appendChild(link);
+
     link.click();
+
     document.body.removeChild(link);
+
     URL.revokeObjectURL(url);
   }
 
@@ -756,13 +841,22 @@ export default function EnquiryList() {
         title="All Enquiries"
         subtitle="Manage and track all candidate enquiries"
         action={
-          <div style={{ display: "flex", gap: "10px", alignItems: "center", flexWrap: "wrap" }}>
+          <div
+            style={{
+              display: "flex",
+              gap: "10px",
+              alignItems: "center",
+              flexWrap: "wrap",
+            }}
+          >
             <button
               type="button"
               className="secondary"
               onClick={exportToExcel}
               title="Export all enquiries to Excel"
-              style={{ whiteSpace: "nowrap" }}
+              style={{
+                whiteSpace: "nowrap",
+              }}
             >
               ⬇ Export Excel
             </button>
@@ -776,11 +870,13 @@ export default function EnquiryList() {
           </div>
         }
       >
-        {/* ===============================================
+
+        {/* =================================================
             FILTERS
-        =============================================== */}
+        ================================================= */}
 
         <div className="filters">
+
           <input
             type="text"
             placeholder="Search candidate / mobile..."
@@ -876,9 +972,9 @@ export default function EnquiryList() {
           )}
         </div>
 
-        {/* ===============================================
+        {/* =================================================
             ERROR
-        =============================================== */}
+        ================================================= */}
 
         {error && (
           <div className="error-message">
@@ -886,12 +982,23 @@ export default function EnquiryList() {
           </div>
         )}
 
-        {/* ===============================================
+        {/* =================================================
+            SUCCESS
+        ================================================= */}
+
+        {message && !modal && (
+          <div className="success-message">
+            {message}
+          </div>
+        )}
+
+        {/* =================================================
             TABLE
-        =============================================== */}
+        ================================================= */}
 
         <div className="table-scroll">
           <table>
+
             <thead>
               <tr>
                 {[
@@ -915,7 +1022,9 @@ export default function EnquiryList() {
             </thead>
 
             <tbody>
+
               {loading ? (
+
                 <tr>
                   <td
                     colSpan="11"
@@ -928,7 +1037,9 @@ export default function EnquiryList() {
                     Loading enquiries...
                   </td>
                 </tr>
+
               ) : filtered.length === 0 ? (
+
                 <tr>
                   <td
                     colSpan="11"
@@ -941,106 +1052,135 @@ export default function EnquiryList() {
                     No enquiries found.
                   </td>
                 </tr>
+
               ) : (
-                filtered.map((row) => (
-                  <tr
-                    key={row.id}
-                  >
-                    <td>
-                      {row.id}
-                    </td>
 
-                    <td>
-                      <strong>
-                        {row.name}
-                      </strong>
-                    </td>
+                filtered.map(
+                  (row, index) => (
+                    <tr
+                      key={row.id}
+                    >
 
-                    <td>
-                      {row.mobile}
-                    </td>
+                      {/* =================================================
+                          IMPORTANT FIX
+                          
+                          DO NOT USE:
+                          {row.id}
 
-                    <td>
-                      {row.city}
-                    </td>
+                          Because row.id is the database ID.
 
-                    <td>
-                      {row.type}
-                    </td>
+                          Use:
+                          page + index
 
-                    <td>
-                      {row.category}
-                    </td>
+                          This creates:
+                          Page 1 -> 1,2,3...
+                          Page 2 -> 11,12,13...
+                      ================================================= */}
 
-                    <td>
-                      {row.course}
-                    </td>
+                      <td>
+                        {(page - 1) *
+                          ITEMS_PER_PAGE +
+                          index +
+                          1}
+                      </td>
 
-                    <td>
-                      {row.admin}
-                    </td>
+                      <td>
+                        <strong>
+                          {row.name}
+                        </strong>
+                      </td>
 
-                    <td>
-                      {normalizeDateForInput(
-                        row.next_followup_date ||
-                          row.date
-                      ) || "-"}
-                    </td>
+                      <td>
+                        {row.mobile}
+                      </td>
 
-                    <td>
-                      <Badge
-                        status={
-                          row.status
-                        }
-                      />
-                    </td>
+                      <td>
+                        {row.city}
+                      </td>
 
-                    <td>
-                      <div className="action-buttons">
-                        <button
-                          className="icon-btn"
-                          aria-label={`View ${row.name}`}
-                          title="View"
-                          onClick={() =>
-                            openView(row)
+                      <td>
+                        {row.type}
+                      </td>
+
+                      <td>
+                        {row.category}
+                      </td>
+
+                      <td>
+                        {row.course}
+                      </td>
+
+                      <td>
+                        {row.admin}
+                      </td>
+
+                      <td>
+                        {normalizeDateForInput(
+                          row.next_followup_date ||
+                            row.date
+                        ) || "-"}
+                      </td>
+
+                      <td>
+                        <Badge
+                          status={
+                            row.status
                           }
-                        >
-                          👁
-                        </button>
+                        />
+                      </td>
 
-                        <button
-                          className="icon-btn"
-                          aria-label={`Edit ${row.name}`}
-                          title="Edit"
-                          onClick={() =>
-                            openEdit(row)
-                          }
-                        >
-                          ✎
-                        </button>
+                      <td>
+                        <div className="action-buttons">
 
-                        <button
-                          className="icon-btn delete-btn"
-                          aria-label={`Delete ${row.name}`}
-                          title="Delete"
-                          onClick={() =>
-                            remove(row)
-                          }
-                        >
-                          🗑
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))
+                          <button
+                            className="icon-btn"
+                            aria-label={`View ${row.name}`}
+                            title="View"
+                            onClick={() =>
+                              openView(row)
+                            }
+                          >
+                            👁
+                          </button>
+
+                          <button
+                            className="icon-btn"
+                            aria-label={`Edit ${row.name}`}
+                            title="Edit"
+                            onClick={() =>
+                              openEdit(row)
+                            }
+                          >
+                            ✎
+                          </button>
+
+                          <button
+                            className="icon-btn delete-btn"
+                            aria-label={`Delete ${row.name}`}
+                            title="Delete"
+                            onClick={() =>
+                              remove(row)
+                            }
+                          >
+                            🗑
+                          </button>
+
+                        </div>
+                      </td>
+
+                    </tr>
+                  )
+                )
               )}
+
             </tbody>
+
           </table>
         </div>
 
-        {/* ===============================================
+        {/* =================================================
             PAGINATION
-        =============================================== */}
+        ================================================= */}
 
         <Pagination
           page={page}
@@ -1048,9 +1188,9 @@ export default function EnquiryList() {
           total={allFiltered.length}
         />
 
-        {/* ===============================================
+        {/* =================================================
             VIEW MODAL
-        =============================================== */}
+        ================================================= */}
 
         {modal?.type === "view" && (
           <div
@@ -1059,13 +1199,16 @@ export default function EnquiryList() {
               setModal(null)
             }
           >
+
             <div
               className="modal"
               onClick={(e) =>
                 e.stopPropagation()
               }
             >
+
               <div className="modal-header">
+
                 <div>
                   <h3>
                     {modal.row.name}
@@ -1085,18 +1228,40 @@ export default function EnquiryList() {
                 >
                   X
                 </button>
+
               </div>
 
               <div className="detail-grid">
+
                 <div>
                   <small>
                     Mobile
                   </small>
+
                   <strong>
-                    {
-                      modal.row
-                        .mobile
-                    }
+                    {modal.row.mobile}
+                  </strong>
+                </div>
+
+                <div>
+                  <small>
+                    City
+                  </small>
+
+                  <strong>
+                    {modal.row.city ||
+                      "—"}
+                  </strong>
+                </div>
+
+                <div>
+                  <small>
+                    Type
+                  </small>
+
+                  <strong>
+                    {modal.row.type ||
+                      "—"}
                   </strong>
                 </div>
 
@@ -1104,10 +1269,10 @@ export default function EnquiryList() {
                   <small>
                     Status
                   </small>
+
                   <Badge
                     status={
-                      modal.row
-                        .status
+                      modal.row.status
                     }
                   />
                 </div>
@@ -1116,6 +1281,7 @@ export default function EnquiryList() {
                   <small>
                     Follow-up Date
                   </small>
+
                   <strong>
                     {normalizeDateForInput(
                       modal.row
@@ -1130,27 +1296,27 @@ export default function EnquiryList() {
                   <small>
                     Course
                   </small>
+
                   <strong>
-                    {
-                      modal.row
-                        .course
-                    }
+                    {modal.row.course}
                   </strong>
                 </div>
+
               </div>
 
               <div className="followup-note">
-                {modal.row
-                  .comments ||
+                {modal.row.comments ||
                   "No previous follow-up discussion recorded."}
               </div>
+
             </div>
+
           </div>
         )}
 
-        {/* ===============================================
+        {/* =================================================
             EDIT MODAL
-        =============================================== */}
+        ================================================= */}
 
         {modal?.type === "edit" && (
           <div
@@ -1159,6 +1325,7 @@ export default function EnquiryList() {
               setModal(null)
             }
           >
+
             <form
               className="modal edit-modal"
               onSubmit={save}
@@ -1166,7 +1333,9 @@ export default function EnquiryList() {
                 e.stopPropagation()
               }
             >
+
               <div className="modal-header">
+
                 <div>
                   <h3>
                     Edit Enquiry
@@ -1188,9 +1357,11 @@ export default function EnquiryList() {
                 >
                   X
                 </button>
+
               </div>
 
               <div className="form-grid">
+
                 {[
                   [
                     "candidate_name",
@@ -1222,10 +1393,12 @@ export default function EnquiryList() {
                   ],
                 ].map(
                   ([name, label]) => (
+
                     <div
                       className="form-group"
                       key={name}
                     >
+
                       <label>
                         {label}
                       </label>
@@ -1238,49 +1411,51 @@ export default function EnquiryList() {
                         }
                         onChange={change}
                       />
+
                     </div>
+
                   )
                 )}
 
-                {/* ========================================
-                    TYPE DROPDOWN
-                ======================================== */}
+                {/* TYPE */}
 
                 <div className="form-group">
-                  <label>Type</label>
+
+                  <label>
+                    Type
+                  </label>
 
                   <select
                     name="type"
-                    value={form.type || ""}
+                    value={
+                      form.type || ""
+                    }
                     onChange={change}
                   >
+
                     <option value="">
                       Select Type
                     </option>
-                    {[
-                      "Experience",
-                      "Students",
-                      "Freshers",
-                      "Experience in Non IT",
-                      "Experience in IT",
-                      "Career Gap",
-                    ].map((item) => (
-                      <option
-                        key={item}
-                        value={item}
-                      >
-                        {item}
-                      </option>
-                    ))}
+
+                    {types.map(
+                      (item) => (
+                        <option
+                          key={item}
+                          value={item}
+                        >
+                          {item}
+                        </option>
+                      )
+                    )}
+
                   </select>
+
                 </div>
 
-
-                {/* ========================================
-                    FOLLOW-UP DATE
-                ======================================== */}
+                {/* FOLLOW-UP DATE */}
 
                 <div className="form-group">
+
                   <label>
                     Next Follow-up Date
                   </label>
@@ -1296,7 +1471,6 @@ export default function EnquiryList() {
                     onChange={change}
                   />
 
-                  {/* Debug display - remove if not needed */}
                   {form.next_followup_date && (
                     <small
                       style={{
@@ -1313,13 +1487,13 @@ export default function EnquiryList() {
                       }
                     </small>
                   )}
+
                 </div>
 
-                {/* ========================================
-                    STATUS
-                ======================================== */}
+                {/* STATUS */}
 
                 <div className="form-group">
+
                   <label>
                     Status
                   </label>
@@ -1332,6 +1506,7 @@ export default function EnquiryList() {
                     }
                     onChange={change}
                   >
+
                     {[
                       "Positive",
                       "Pending",
@@ -1349,14 +1524,15 @@ export default function EnquiryList() {
                         </option>
                       )
                     )}
+
                   </select>
+
                 </div>
 
-                {/* ========================================
-                    COMMENTS
-                ======================================== */}
+                {/* COMMENTS */}
 
                 <div className="form-group full">
+
                   <label>
                     Comments / Last
                     Discussion
@@ -1371,12 +1547,12 @@ export default function EnquiryList() {
                     onChange={change}
                     rows="4"
                   />
+
                 </div>
+
               </div>
 
-              {/* =========================================
-                  SUCCESS / ERROR
-              ========================================= */}
+              {/* SUCCESS */}
 
               {message && (
                 <div className="success-message">
@@ -1384,17 +1560,18 @@ export default function EnquiryList() {
                 </div>
               )}
 
+              {/* ERROR */}
+
               {error && (
                 <div className="error-message">
                   {error}
                 </div>
               )}
 
-              {/* =========================================
-                  ACTIONS
-              ========================================= */}
+              {/* ACTIONS */}
 
               <div className="form-actions">
+
                 <button
                   type="button"
                   className="secondary"
@@ -1414,10 +1591,14 @@ export default function EnquiryList() {
                     ? "Updating..."
                     : "Update Enquiry"}
                 </button>
+
               </div>
+
             </form>
+
           </div>
         )}
+
       </Panel>
     </>
   );

@@ -375,7 +375,33 @@ export default function AddEnquiry() {
       // API CREATE
       // ----------------------------------------------
 
-      await enquiryApi.create(payload);
+      const result =
+        await enquiryApi.create(payload);
+
+      // Cache type in localStorage so it
+      // shows in EnquiryList even before
+      // backend is redeployed with type column
+      const newId =
+        result?.data?.id ||
+        result?.data?.insertId;
+
+      if (newId && payload.type) {
+        try {
+          const cache = JSON.parse(
+            localStorage.getItem(
+              "scot_it_enquiry_types"
+            ) || "{}"
+          );
+          cache[String(newId)] =
+            String(payload.type).trim();
+          localStorage.setItem(
+            "scot_it_enquiry_types",
+            JSON.stringify(cache)
+          );
+        } catch {
+          // ignore cache error
+        }
+      }
 
       // ----------------------------------------------
       // SUCCESS

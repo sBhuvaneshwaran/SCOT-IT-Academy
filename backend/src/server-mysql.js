@@ -1627,25 +1627,9 @@ app.get(
       const [rows] =
         await db.query(
           `
-          SELECT
-            id,
-            branch,
-            admin,
-            enquiry_date,
-            candidate_name,
-            mobile,
-            city,
-            type,
-            category,
-            course,
-            comments,
-            next_followup_date,
-            status,
-            referred_by,
-            created_at,
-            updated_at
+          SELECT *
           FROM enquiries
-          ORDER BY id DESC
+          ORDER BY id ASC
           `
         );
 
