@@ -7,6 +7,7 @@ import React, {
 import {
   enquiryApi,
   referralApi,
+  typeApi,
 } from "../services/api";
 
 import {
@@ -35,6 +36,21 @@ const emptyForm = {
 };
 
 /* =========================================================
+   FALLBACK TYPES
+   Used only when Type API fails or returns no data.
+========================================================= */
+
+const DEFAULT_TYPES = [
+  "Experience",
+  "Students",
+  "Freshers",
+  "Experience in Non IT",
+  "Experience in IT",
+  "Career Gap",
+  "Others",
+];
+
+/* =========================================================
    DATE HELPERS
 ========================================================= */
 
@@ -58,15 +74,13 @@ function normalizeDateForInput(value) {
   }
 
   if (/^\d{2}-\d{2}-\d{4}$/.test(str)) {
-    const [day, month, year] =
-      str.split("-");
+    const [day, month, year] = str.split("-");
 
     return `${year}-${month}-${day}`;
   }
 
   if (/^\d{2}\/\d{2}\/\d{4}$/.test(str)) {
-    const [day, month, year] =
-      str.split("/");
+    const [day, month, year] = str.split("/");
 
     return `${year}-${month}-${day}`;
   }
@@ -78,15 +92,12 @@ function normalizeDateForInput(value) {
    TYPE CACHE
 ========================================================= */
 
-const TYPE_CACHE_KEY =
-  "scot_it_enquiry_types";
+const TYPE_CACHE_KEY = "scot_it_enquiry_types";
 
 function getAllCachedTypes() {
   try {
     return JSON.parse(
-      localStorage.getItem(
-        TYPE_CACHE_KEY
-      ) || "{}"
+      localStorage.getItem(TYPE_CACHE_KEY) || "{}"
     );
   } catch {
     return {};
@@ -97,24 +108,17 @@ function getCachedType(id) {
   if (!id) return "";
 
   return (
-    getAllCachedTypes()[
-      String(id)
-    ] || ""
+    getAllCachedTypes()[String(id)] || ""
   );
 }
 
 function setCachedType(id, type) {
   if (!id) return;
 
-  const cache =
-    getAllCachedTypes();
+  const cache = getAllCachedTypes();
 
-  if (
-    type &&
-    String(type).trim()
-  ) {
-    cache[String(id)] =
-      String(type).trim();
+  if (type && String(type).trim()) {
+    cache[String(id)] = String(type).trim();
   } else {
     delete cache[String(id)];
   }
@@ -126,14 +130,68 @@ function setCachedType(id, type) {
 }
 
 /* =========================================================
+   GET TYPE NAME SAFELY
+========================================================= */
+
+function getTypeName(value) {
+  if (!value) {
+    return "";
+  }
+
+  /*
+   * If backend returns:
+   * type: "Experience"
+   */
+  if (typeof value === "string") {
+    return value.trim();
+  }
+
+  /*
+   * If backend returns:
+   * type: { id: 1, name: "Experience" }
+   */
+  if (typeof value === "object") {
+    return String(
+      value.name ||
+      value.type ||
+      value.title ||
+      value.type_name ||
+      ""
+    ).trim();
+  }
+
+  return String(value).trim();
+}
+
+/* =========================================================
    NORMALIZE ENQUIRY
 ========================================================= */
 
 function normalize(row = {}) {
+  const backendType = getTypeName(row.type);
+
+  const educationType = getTypeName(
+    row.education
+  );
+
+  const degreeType = getTypeName(
+    row.degree
+  );
+
+  const cachedType = getCachedType(
+    row.id
+  );
+
+  const finalType =
+    backendType ||
+    educationType ||
+    degreeType ||
+    cachedType ||
+    "";
+
   return {
     ...row,
 
-    // Keep the real database ID.
     id: row.id,
 
     name:
@@ -155,19 +213,12 @@ function normalize(row = {}) {
       row.city ||
       "",
 
-    education:
-      row.type ||
-      getCachedType(row.id) ||
-      row.education ||
-      row.degree ||
-      "",
+    /*
+     * TYPE
+     */
+    type: finalType,
 
-    type:
-      row.type ||
-      getCachedType(row.id) ||
-      row.education ||
-      row.degree ||
-      "",
+    education: finalType,
 
     branch:
       row.branch ||
@@ -192,19 +243,19 @@ function normalize(row = {}) {
     next_followup_date:
       normalizeDateForInput(
         row.next_followup_date ??
-          row.nextFollowUpDate ??
-          row.next_follow_up_date ??
-          row.date ??
-          ""
+        row.nextFollowUpDate ??
+        row.next_follow_up_date ??
+        row.date ??
+        ""
       ),
 
     date:
       normalizeDateForInput(
         row.next_followup_date ??
-          row.nextFollowUpDate ??
-          row.next_follow_up_date ??
-          row.date ??
-          ""
+        row.nextFollowUpDate ??
+        row.next_follow_up_date ??
+        row.date ??
+        ""
       ),
 
     status:
@@ -224,8 +275,7 @@ function normalize(row = {}) {
 ========================================================= */
 
 function enquiryToForm(row = {}) {
-  const normalized =
-    normalize(row);
+  const normalized = normalize(row);
 
   return {
     ...emptyForm,
@@ -266,8 +316,7 @@ function enquiryToForm(row = {}) {
       ),
 
     status:
-      normalized.status ||
-      "Pending",
+      normalized.status || "Pending",
   };
 }
 
@@ -276,11 +325,9 @@ function enquiryToForm(row = {}) {
 ========================================================= */
 
 export default function EnquiryList() {
-  const [rows, setRows] =
-    useState([]);
+  const [rows, setRows] = useState([]);
 
-  const [q, setQ] =
-    useState("");
+  const [q, setQ] = useState("");
 
   const [typeFilter, setTypeFilter] =
     useState("");
@@ -314,14 +361,19 @@ export default function EnquiryList() {
   const [error, setError] =
     useState("");
 
-  /*
-   * =======================================================
-   * REFFERED BY MASTER DATA
-   * =======================================================
-   *
-   * These values come from the Referred By page/database.
-   * They are NOT taken from the enquiries table.
-   */
+  /* =======================================================
+     TYPE MASTER DATA
+  ======================================================= */
+
+  const [masterTypes, setMasterTypes] =
+    useState([]);
+
+  const [typesLoading, setTypesLoading] =
+    useState(false);
+
+  /* =======================================================
+     REFERRED BY MASTER DATA
+  ======================================================= */
 
   const [referrals, setReferrals] =
     useState([]);
@@ -331,9 +383,9 @@ export default function EnquiryList() {
 
   const ITEMS_PER_PAGE = 10;
 
-  /* =======================================================
+  /* =========================================================
      LOAD ENQUIRIES
-  ======================================================= */
+  ========================================================= */
 
   async function loadEnquiries() {
     setLoading(true);
@@ -343,16 +395,22 @@ export default function EnquiryList() {
       const response =
         await enquiryApi.list();
 
+      const responseData =
+        response?.data;
+
       const data =
-        response?.data?.results ||
-        response?.data ||
+        responseData?.results ||
+        responseData ||
         [];
 
-      setRows(
-        Array.isArray(data)
-          ? data.map(normalize)
-          : []
-      );
+      if (Array.isArray(data)) {
+        const normalizedRows =
+          data.map(normalize);
+
+        setRows(normalizedRows);
+      } else {
+        setRows([]);
+      }
     } catch (err) {
       console.error(
         "Failed to load enquiries:",
@@ -369,9 +427,109 @@ export default function EnquiryList() {
     }
   }
 
-  /* =======================================================
+  /* =========================================================
+     LOAD TYPE MASTER DATA
+  ========================================================= */
+
+  async function loadTypes() {
+    setTypesLoading(true);
+
+    try {
+      /*
+       * IMPORTANT:
+       *
+       * This must come from your Type Management API.
+       *
+       * Example:
+       * GET /api/types/
+       */
+
+      const response =
+        await typeApi.list();
+
+      const responseData =
+        response?.data;
+
+      const data =
+        responseData?.results ||
+        responseData ||
+        [];
+
+      if (!Array.isArray(data)) {
+        throw new Error(
+          "Invalid Type API response"
+        );
+      }
+
+      /*
+       * Convert different backend formats
+       * into simple Type names.
+       */
+
+      const cleanTypes = data
+        .map((item) => {
+          return getTypeName(
+            item?.name ||
+            item?.type ||
+            item?.title ||
+            item?.type_name
+          );
+        })
+        .filter(Boolean);
+
+      /*
+       * Remove duplicate Type names.
+       */
+
+      const uniqueTypes = [
+        ...new Set(cleanTypes),
+      ].sort((a, b) =>
+        a.localeCompare(b)
+      );
+
+      console.log(
+        "Type master data from API:",
+        uniqueTypes
+      );
+
+      /*
+       * If API contains types,
+       * use database values.
+       */
+
+      if (uniqueTypes.length > 0) {
+        setMasterTypes(
+          uniqueTypes
+        );
+      } else {
+        /*
+         * API returned empty.
+         */
+        setMasterTypes(
+          DEFAULT_TYPES
+        );
+      }
+    } catch (err) {
+      console.error(
+        "Failed to load Type master data:",
+        err
+      );
+
+      /*
+       * Do not break the edit form.
+       */
+
+      setMasterTypes(
+        DEFAULT_TYPES
+      );
+    } finally {
+      setTypesLoading(false);
+    }
+  }
+
+  /* =========================================================
      LOAD REFERRED BY MASTER DATA
-  ======================================================= */
+  ========================================================= */
 
   async function loadReferrals() {
     setReferralsLoading(true);
@@ -380,9 +538,12 @@ export default function EnquiryList() {
       const response =
         await referralApi.list();
 
+      const responseData =
+        response?.data;
+
       const data =
-        response?.data?.results ||
-        response?.data ||
+        responseData?.results ||
+        responseData ||
         [];
 
       const cleanData =
@@ -391,7 +552,10 @@ export default function EnquiryList() {
               .map((item) => ({
                 id: item.id,
                 name: String(
-                  item.name || ""
+                  item.name ||
+                  item.referral_name ||
+                  item.title ||
+                  ""
                 ).trim(),
               }))
               .filter(
@@ -400,16 +564,15 @@ export default function EnquiryList() {
               )
           : [];
 
-      /*
-       * Sort alphabetically by name.
-       */
       cleanData.sort((a, b) =>
         a.name.localeCompare(
           b.name
         )
       );
 
-      setReferrals(cleanData);
+      setReferrals(
+        cleanData
+      );
     } catch (err) {
       console.error(
         "Failed to load Referred By data:",
@@ -422,21 +585,23 @@ export default function EnquiryList() {
     }
   }
 
-  /* =======================================================
+  /* =========================================================
      INITIAL LOAD
-  ======================================================= */
+  ========================================================= */
 
   useEffect(() => {
     loadEnquiries();
+    loadTypes();
     loadReferrals();
   }, []);
 
-  /* =======================================================
-     REFRESH REFERRED BY WHEN PAGE GETS FOCUS
-  ======================================================= */
+  /* =========================================================
+     REFRESH MASTER DATA WHEN WINDOW GETS FOCUS
+  ========================================================= */
 
   useEffect(() => {
     function handleWindowFocus() {
+      loadTypes();
       loadReferrals();
     }
 
@@ -453,19 +618,61 @@ export default function EnquiryList() {
     };
   }, []);
 
-  /* =======================================================
-     FILTER OPTIONS
-  ======================================================= */
+  /* =========================================================
+     TYPE OPTIONS
+  ========================================================= */
 
-const types = useMemo(() => {
-  const values = rows
-    .map((row) => String(row.type || "").trim())
-    .filter(Boolean);
+  const types = useMemo(() => {
+    const combined = [
+      ...masterTypes,
+    ];
 
-  return [...new Set(values)].sort((a, b) =>
-    a.localeCompare(b)
-  );
-}, [rows]);
+    /*
+     * Keep existing enquiry types.
+     *
+     * This is useful when an old enquiry contains
+     * a Type which has subsequently been deleted
+     * from Type Master.
+     */
+
+    rows.forEach((row) => {
+      const value =
+        getTypeName(row.type);
+
+      if (value) {
+        combined.push(value);
+      }
+    });
+
+    /*
+     * Keep currently selected Type.
+     */
+
+    const currentFormType =
+      getTypeName(form.type);
+
+    if (currentFormType) {
+      combined.push(
+        currentFormType
+      );
+    }
+
+    return [
+      ...new Set(
+        combined.filter(Boolean)
+      ),
+    ].sort((a, b) =>
+      a.localeCompare(b)
+    );
+  }, [
+    masterTypes,
+    rows,
+    form.type,
+  ]);
+
+  /* =========================================================
+     CATEGORIES
+  ========================================================= */
 
   const categories = useMemo(() => {
     return [
@@ -480,6 +687,10 @@ const types = useMemo(() => {
     ].sort();
   }, [rows]);
 
+  /* =========================================================
+     STATUSES
+  ========================================================= */
+
   const statuses = useMemo(() => {
     return [
       ...new Set(
@@ -493,9 +704,9 @@ const types = useMemo(() => {
     ].sort();
   }, [rows]);
 
-  /* =======================================================
+  /* =========================================================
      FILTER
-  ======================================================= */
+  ========================================================= */
 
   const allFiltered =
     useMemo(() => {
@@ -514,7 +725,9 @@ const types = useMemo(() => {
 
           const matchesType =
             !typeFilter ||
-            row.type === typeFilter;
+            getTypeName(
+              row.type
+            ) === typeFilter;
 
           const matchesCategory =
             !category ||
@@ -523,7 +736,8 @@ const types = useMemo(() => {
 
           const matchesStatus =
             !status ||
-            row.status === status;
+            row.status ===
+              status;
 
           return (
             matchesSearch &&
@@ -541,9 +755,9 @@ const types = useMemo(() => {
       status,
     ]);
 
-  /* =======================================================
+  /* =========================================================
      PAGINATION
-  ======================================================= */
+  ========================================================= */
 
   const totalPages =
     Math.max(
@@ -558,7 +772,10 @@ const types = useMemo(() => {
     if (page > totalPages) {
       setPage(totalPages);
     }
-  }, [page, totalPages]);
+  }, [
+    page,
+    totalPages,
+  ]);
 
   const filtered =
     useMemo(() => {
@@ -583,9 +800,9 @@ const types = useMemo(() => {
       page,
     ]);
 
-  /* =======================================================
+  /* =========================================================
      SEARCH / FILTER CHANGE
-  ======================================================= */
+  ========================================================= */
 
   function updateFilter(
     setter,
@@ -595,9 +812,9 @@ const types = useMemo(() => {
     setPage(1);
   }
 
-  /* =======================================================
+  /* =========================================================
      VIEW
-  ======================================================= */
+  ========================================================= */
 
   async function openView(row) {
     setMessage("");
@@ -632,22 +849,31 @@ const types = useMemo(() => {
     }
   }
 
-  /* =======================================================
+  /* =========================================================
      EDIT
-  ======================================================= */
+  ========================================================= */
 
   async function openEdit(row) {
     setMessage("");
     setError("");
 
     /*
-     * Always load the latest Referred By
-     * master list before opening edit.
+     * Load latest Type master and
+     * Referred By master data.
      */
-    await loadReferrals();
+
+    await Promise.all([
+      loadTypes(),
+      loadReferrals(),
+    ]);
 
     let editData =
       normalize(row);
+
+    /*
+     * Get latest enquiry data
+     * from database.
+     */
 
     try {
       const response =
@@ -672,6 +898,16 @@ const types = useMemo(() => {
         editData
       );
 
+    /*
+     * Make sure the current Type
+     * is always a string.
+     */
+
+    editForm.type =
+      getTypeName(
+        editForm.type
+      );
+
     setForm(editForm);
 
     setModal({
@@ -680,9 +916,9 @@ const types = useMemo(() => {
     });
   }
 
-  /* =======================================================
+  /* =========================================================
      FORM CHANGE
-  ======================================================= */
+  ========================================================= */
 
   function change(event) {
     const {
@@ -705,9 +941,9 @@ const types = useMemo(() => {
     );
   }
 
-  /* =======================================================
+  /* =========================================================
      DELETE
-  ======================================================= */
+  ========================================================= */
 
   async function remove(row) {
     const confirmed =
@@ -715,7 +951,9 @@ const types = useMemo(() => {
         `Delete the enquiry for ${row.name}?`
       );
 
-    if (!confirmed) return;
+    if (!confirmed) {
+      return;
+    }
 
     try {
       await enquiryApi.remove(
@@ -726,7 +964,8 @@ const types = useMemo(() => {
         (previous) =>
           previous.filter(
             (item) =>
-              item.id !== row.id
+              item.id !==
+              row.id
           )
       );
 
@@ -734,7 +973,9 @@ const types = useMemo(() => {
         filtered.length === 1 &&
         page > 1
       ) {
-        setPage(page - 1);
+        setPage(
+          page - 1
+        );
       }
 
       setMessage(
@@ -752,16 +993,36 @@ const types = useMemo(() => {
     }
   }
 
-  /* =======================================================
+  /* =========================================================
      SAVE / UPDATE
-  ======================================================= */
+  ========================================================= */
 
   async function save(event) {
     event.preventDefault();
 
+    if (!modal?.row?.id) {
+      setError(
+        "Enquiry ID is missing."
+      );
+      return;
+    }
+
     setSaving(true);
     setMessage("");
     setError("");
+
+    /*
+     * Get selected Type.
+     */
+
+    const selectedType =
+      getTypeName(
+        form.type
+      );
+
+    /*
+     * Build payload.
+     */
 
     const payload = {
       ...form,
@@ -782,10 +1043,19 @@ const types = useMemo(() => {
           form.city || ""
         ).trim(),
 
+      /*
+       * TYPE
+       */
       type:
-        String(
-          form.type || ""
-        ).trim(),
+        selectedType,
+
+      /*
+       * Keep education in payload only
+       * because your existing backend may
+       * use this field.
+       */
+      education:
+        selectedType,
 
       branch:
         String(
@@ -802,13 +1072,25 @@ const types = useMemo(() => {
           form.course || ""
         ).trim(),
 
-      /*
-       * Referred By selected from
-       * master Referred By dropdown.
-       */
       referred_by:
         String(
           form.referred_by || ""
+        ).trim(),
+
+      admin:
+        String(
+          form.admin || ""
+        ).trim(),
+
+      comments:
+        String(
+          form.comments || ""
+        ).trim(),
+
+      status:
+        String(
+          form.status ||
+            "Pending"
         ).trim(),
 
       next_followup_date:
@@ -817,6 +1099,21 @@ const types = useMemo(() => {
         ),
     };
 
+    console.log(
+      "Updating enquiry:",
+      modal.row.id
+    );
+
+    console.log(
+      "Selected Type:",
+      selectedType
+    );
+
+    console.log(
+      "Update payload:",
+      payload
+    );
+
     try {
       const response =
         await enquiryApi.update(
@@ -824,20 +1121,45 @@ const types = useMemo(() => {
           payload
         );
 
-      const updated =
-        normalize(
-          response?.data || {
-            ...modal.row,
-            ...payload,
-          }
-        );
+      console.log(
+        "Update API response:",
+        response?.data
+      );
 
-      if (payload.type) {
+      const responseData =
+        response?.data || {};
+
+      /*
+       * Build updated local row.
+       */
+
+      const updated =
+        normalize({
+          ...modal.row,
+          ...responseData,
+          ...payload,
+
+          type:
+            selectedType,
+
+          education:
+            selectedType,
+        });
+
+      /*
+       * Cache selected Type.
+       */
+
+      if (selectedType) {
         setCachedType(
           modal.row.id,
-          payload.type
+          selectedType
         );
       }
+
+      /*
+       * Update table immediately.
+       */
 
       setRows(
         (previous) =>
@@ -853,34 +1175,58 @@ const types = useMemo(() => {
                     name:
                       payload.candidate_name,
 
-                    education:
-                      payload.type,
+                    candidate_name:
+                      payload.candidate_name,
 
                     type:
-                      payload.type,
+                      selectedType,
+
+                    education:
+                      selectedType,
 
                     referred_by:
                       payload.referred_by,
 
                     date:
                       payload.next_followup_date,
+
+                    next_followup_date:
+                      payload.next_followup_date,
                   })
                 : row
           )
       );
+
+      /*
+       * Final updated row.
+       */
 
       const finalUpdated =
         normalize({
           ...modal.row,
           ...updated,
           ...payload,
+
+          type:
+            selectedType,
+
+          education:
+            selectedType,
         });
+
+      /*
+       * Update form.
+       */
 
       setForm(
         enquiryToForm(
           finalUpdated
         )
       );
+
+      /*
+       * Update modal.
+       */
 
       setModal(
         (previous) => ({
@@ -892,15 +1238,38 @@ const types = useMemo(() => {
       setMessage(
         "Enquiry updated successfully."
       );
+
+      /*
+       * IMPORTANT:
+       *
+       * Get the latest database data.
+       */
+
+      await loadEnquiries();
+
+      /*
+       * Refresh Type master also.
+       */
+
+      await loadTypes();
     } catch (err) {
       console.error(
         "Enquiry update failed:",
         err
       );
 
+      console.error(
+        "Backend response:",
+        err?.response?.data
+      );
+
       const apiMessage =
         err?.response?.data
-          ?.message;
+          ?.message ||
+        err?.response?.data
+          ?.detail ||
+        err?.response?.data
+          ?.error;
 
       setError(
         apiMessage ||
@@ -911,9 +1280,9 @@ const types = useMemo(() => {
     }
   }
 
-  /* =======================================================
+  /* =========================================================
      RESET FILTERS
-  ======================================================= */
+  ========================================================= */
 
   function resetFilters() {
     setQ("");
@@ -923,9 +1292,9 @@ const types = useMemo(() => {
     setPage(1);
   }
 
-  /* =======================================================
-     EXPORT TO EXCEL / CSV
-  ======================================================= */
+  /* =========================================================
+     EXPORT
+  ========================================================= */
 
   function exportToExcel() {
     const data = rows;
@@ -976,13 +1345,15 @@ const types = useMemo(() => {
         key: "referred_by",
       },
       {
-        header: "Enquiry Date",
+        header:
+          "Enquiry Date",
         key: "enquiry_date",
       },
       {
         header:
           "Follow-up Date",
-        key: "next_followup_date",
+        key:
+          "next_followup_date",
       },
       {
         header: "Status",
@@ -1016,20 +1387,21 @@ const types = useMemo(() => {
 
     const headerRow =
       columns
-        .map((col) =>
+        .map((column) =>
           csvCell(
-            col.header
+            column.header
           )
         )
         .join(",");
 
     const dataRows =
       data.map(
-        (row, index) => {
-          return columns
-            .map((col) => {
+        (row, index) =>
+          columns
+            .map((column) => {
               if (
-                col.key === null
+                column.key ===
+                null
               ) {
                 return csvCell(
                   index + 1
@@ -1037,11 +1409,17 @@ const types = useMemo(() => {
               }
 
               return csvCell(
-                row[col.key]
+                column.key ===
+                  "type"
+                  ? getTypeName(
+                      row.type
+                    )
+                  : row[
+                      column.key
+                    ]
               );
             })
-            .join(",");
-        }
+            .join(",")
       );
 
     const csvContent =
@@ -1081,7 +1459,10 @@ const types = useMemo(() => {
         "0"
       )}-${String(
         now.getDate()
-      ).padStart(2, "0")}`;
+      ).padStart(
+        2,
+        "0"
+      )}`;
 
     link.href = url;
 
@@ -1105,9 +1486,9 @@ const types = useMemo(() => {
     );
   }
 
-  /* =======================================================
+  /* =========================================================
      RENDER
-  ======================================================= */
+  ========================================================= */
 
   return (
     <>
@@ -1149,13 +1530,11 @@ const types = useMemo(() => {
           </div>
         }
       >
-
         {/* =================================================
             FILTERS
         ================================================= */}
 
         <div className="filters">
-
           <input
             type="text"
             placeholder="Search candidate / mobile..."
@@ -1168,28 +1547,32 @@ const types = useMemo(() => {
             }
           />
 
-<select
-  value={typeFilter}
-  onChange={(e) =>
-    updateFilter(
-      setTypeFilter,
-      e.target.value
-    )
-  }
->
-  <option value="">
-    All Types
-  </option>
+          {/* TYPE FILTER */}
 
-  {types.map((item) => (
-    <option
-      key={item}
-      value={item}
-    >
-      {item}
-    </option>
-  ))}
-</select>
+          <select
+            value={typeFilter}
+            onChange={(e) =>
+              updateFilter(
+                setTypeFilter,
+                e.target.value
+              )
+            }
+          >
+            <option value="">
+              All Types
+            </option>
+
+            {types.map(
+              (item) => (
+                <option
+                  key={item}
+                  value={item}
+                >
+                  {item}
+                </option>
+              )
+            )}
+          </select>
 
           <select
             value={category}
@@ -1241,7 +1624,7 @@ const types = useMemo(() => {
             )}
           </select>
 
-          {/* {(q ||
+          {(q ||
             typeFilter ||
             category ||
             status) && (
@@ -1252,9 +1635,9 @@ const types = useMemo(() => {
                 resetFilters
               }
             >
-              Clear
+              Clear Filters
             </button>
-          )} */}
+          )}
         </div>
 
         {/* =================================================
@@ -1284,7 +1667,6 @@ const types = useMemo(() => {
 
         <div className="table-scroll">
           <table>
-
             <thead>
               <tr>
                 {[
@@ -1302,7 +1684,9 @@ const types = useMemo(() => {
                 ].map(
                   (heading) => (
                     <th
-                      key={heading}
+                      key={
+                        heading
+                      }
                     >
                       {heading}
                     </th>
@@ -1312,9 +1696,7 @@ const types = useMemo(() => {
             </thead>
 
             <tbody>
-
               {loading ? (
-
                 <tr>
                   <td
                     colSpan="11"
@@ -1328,10 +1710,8 @@ const types = useMemo(() => {
                     Loading enquiries...
                   </td>
                 </tr>
-
               ) : filtered.length ===
                 0 ? (
-
                 <tr>
                   <td
                     colSpan="11"
@@ -1345,20 +1725,20 @@ const types = useMemo(() => {
                     No enquiries found.
                   </td>
                 </tr>
-
               ) : (
-
                 filtered.map(
                   (
                     row,
                     index
                   ) => (
                     <tr
-                      key={row.id}
+                      key={
+                        row.id
+                      }
                     >
-
                       <td>
-                        {(page - 1) *
+                        {(page -
+                          1) *
                           ITEMS_PER_PAGE +
                           index +
                           1}
@@ -1385,9 +1765,9 @@ const types = useMemo(() => {
                       </td>
 
                       <td>
-                        {
+                        {getTypeName(
                           row.type
-                        }
+                        )}
                       </td>
 
                       <td>
@@ -1412,8 +1792,7 @@ const types = useMemo(() => {
                         {normalizeDateForInput(
                           row.next_followup_date ||
                             row.date
-                        ) ||
-                          "-"}
+                        ) || "-"}
                       </td>
 
                       <td>
@@ -1426,7 +1805,6 @@ const types = useMemo(() => {
 
                       <td>
                         <div className="action-buttons">
-
                           <button
                             className="icon-btn"
                             aria-label={`View ${row.name}`}
@@ -1465,17 +1843,13 @@ const types = useMemo(() => {
                           >
                             🗑
                           </button>
-
                         </div>
                       </td>
-
                     </tr>
                   )
                 )
               )}
-
             </tbody>
-
           </table>
         </div>
 
@@ -1503,16 +1877,13 @@ const types = useMemo(() => {
               setModal(null)
             }
           >
-
             <div
               className="modal"
               onClick={(e) =>
                 e.stopPropagation()
               }
             >
-
               <div className="modal-header">
-
                 <div>
                   <h3>
                     {
@@ -1536,11 +1907,9 @@ const types = useMemo(() => {
                 >
                   X
                 </button>
-
               </div>
 
               <div className="detail-grid">
-
                 <div>
                   <small>
                     Mobile
@@ -1574,11 +1943,10 @@ const types = useMemo(() => {
                   </small>
 
                   <strong>
-                    {
+                    {getTypeName(
                       modal.row
-                        .type ||
-                      "—"
-                    }
+                        .type
+                    ) || "—"}
                   </strong>
                 </div>
 
@@ -1637,7 +2005,6 @@ const types = useMemo(() => {
                     }
                   </strong>
                 </div>
-
               </div>
 
               <div className="followup-note">
@@ -1647,9 +2014,7 @@ const types = useMemo(() => {
                   "No previous follow-up discussion recorded."
                 }
               </div>
-
             </div>
-
           </div>
         )}
 
@@ -1665,7 +2030,6 @@ const types = useMemo(() => {
               setModal(null)
             }
           >
-
             <form
               className="modal edit-modal"
               onSubmit={save}
@@ -1673,9 +2037,7 @@ const types = useMemo(() => {
                 e.stopPropagation()
               }
             >
-
               <div className="modal-header">
-
                 <div>
                   <h3>
                     Edit Enquiry
@@ -1697,11 +2059,9 @@ const types = useMemo(() => {
                 >
                   X
                 </button>
-
               </div>
 
               <div className="form-grid">
-
                 {/* CANDIDATE NAME */}
 
                 <div className="form-group">
@@ -1822,12 +2182,9 @@ const types = useMemo(() => {
                   />
                 </div>
 
-                {/* =================================================
-                    REFERRED BY DROPDOWN
-                ================================================= */}
+                {/* REFERRED BY */}
 
                 <div className="form-group">
-
                   <label>
                     Referred By
                   </label>
@@ -1845,7 +2202,6 @@ const types = useMemo(() => {
                       referralsLoading
                     }
                   >
-
                     <option value="">
                       {referralsLoading
                         ? "Loading Referred By..."
@@ -1869,12 +2225,6 @@ const types = useMemo(() => {
                       )
                     )}
 
-                    {/* 
-                      If an existing enquiry has a referred_by
-                      value that no longer exists in the master
-                      Referred By list, keep the old value here.
-                    */}
-
                     {form.referred_by &&
                       !referrals.some(
                         (item) =>
@@ -1891,15 +2241,12 @@ const types = useMemo(() => {
                           }
                         </option>
                       )}
-
                   </select>
-
                 </div>
 
                 {/* TYPE */}
 
                 <div className="form-group">
-
                   <label>
                     Type
                   </label>
@@ -1913,31 +2260,69 @@ const types = useMemo(() => {
                     onChange={
                       change
                     }
+                    disabled={
+                      typesLoading
+                    }
                   >
-
                     <option value="">
-                      Select Type
+                      {typesLoading
+                        ? "Loading Types..."
+                        : "Select Type"}
                     </option>
 
                     {types.map(
                       (item) => (
                         <option
-                          key={item}
-                          value={item}
+                          key={
+                            item
+                          }
+                          value={
+                            item
+                          }
                         >
-                          {item}
+                          {
+                            item
+                          }
                         </option>
                       )
                     )}
 
+                    {form.type &&
+                      !types.includes(
+                        form.type
+                      ) && (
+                        <option
+                          value={
+                            form.type
+                          }
+                        >
+                          {
+                            form.type
+                          }
+                        </option>
+                      )}
                   </select>
 
+                  {typesLoading && (
+                    <small
+                      style={{
+                        display:
+                          "block",
+                        marginTop:
+                          "5px",
+                        opacity:
+                          0.7,
+                      }}
+                    >
+                      Loading latest
+                      Type data...
+                    </small>
+                  )}
                 </div>
 
                 {/* FOLLOW-UP DATE */}
 
                 <div className="form-group">
-
                   <label>
                     Next Follow-up Date
                   </label>
@@ -1970,13 +2355,11 @@ const types = useMemo(() => {
                       }
                     </small>
                   )}
-
                 </div>
 
                 {/* STATUS */}
 
                 <div className="form-group">
-
                   <label>
                     Status
                   </label>
@@ -1991,7 +2374,6 @@ const types = useMemo(() => {
                       change
                     }
                   >
-
                     {[
                       "Positive",
                       "Pending",
@@ -2002,22 +2384,25 @@ const types = useMemo(() => {
                     ].map(
                       (item) => (
                         <option
-                          key={item}
-                          value={item}
+                          key={
+                            item
+                          }
+                          value={
+                            item
+                          }
                         >
-                          {item}
+                          {
+                            item
+                          }
                         </option>
                       )
                     )}
-
                   </select>
-
                 </div>
 
                 {/* COMMENTS */}
 
                 <div className="form-group full">
-
                   <label>
                     Comments / Last
                     Discussion
@@ -2034,9 +2419,7 @@ const types = useMemo(() => {
                     }
                     rows="4"
                   />
-
                 </div>
-
               </div>
 
               {/* SUCCESS */}
@@ -2058,7 +2441,6 @@ const types = useMemo(() => {
               {/* ACTIONS */}
 
               <div className="form-actions">
-
                 <button
                   type="button"
                   className="secondary"
@@ -2072,20 +2454,18 @@ const types = useMemo(() => {
                 <button
                   type="submit"
                   className="primary"
-                  disabled={saving}
+                  disabled={
+                    saving
+                  }
                 >
                   {saving
                     ? "Updating..."
                     : "Update Enquiry"}
                 </button>
-
               </div>
-
             </form>
-
           </div>
         )}
-
       </Panel>
     </>
   );

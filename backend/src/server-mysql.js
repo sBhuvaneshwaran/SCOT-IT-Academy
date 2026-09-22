@@ -19,7 +19,7 @@ const app = express();
 // SERVER CONFIG
 // ============================================================
 
-const PORT = Number(process.env.PORT || 5000);
+const PORT = Number(process.env.PORT || 10000);
 
 const JWT_SECRET =
   process.env.JWT_SECRET || "development-only-secret";
@@ -35,6 +35,7 @@ function getDatabaseConfig() {
 
   if (connectionString) {
     const url = new URL(connectionString);
+
     const sslRequired =
       url.searchParams.get("ssl-mode") === "REQUIRED" ||
       url.searchParams.get("ssl") === "true";
@@ -44,7 +45,9 @@ function getDatabaseConfig() {
       port: Number(url.port || 3306),
       user: decodeURIComponent(url.username),
       password: decodeURIComponent(url.password),
-      database: decodeURIComponent(url.pathname.replace(/^\//, "")),
+      database: decodeURIComponent(
+        url.pathname.replace(/^\//, "")
+      ),
       ssl: sslRequired
         ? { rejectUnauthorized: false }
         : undefined,
@@ -70,11 +73,8 @@ const DB_CONFIG = {
 
   waitForConnections: true,
   connectionLimit: 10,
-
   dateStrings: true,
-
   charset: "utf8mb4",
-
 };
 
 // ============================================================
@@ -91,10 +91,6 @@ function text(value) {
   return String(value ?? "").trim();
 }
 
-// ------------------------------------------------------------
-// Amount helper
-// ------------------------------------------------------------
-
 function amount(value, fallback = 0) {
   const number = Number(value);
 
@@ -103,95 +99,47 @@ function amount(value, fallback = 0) {
     : fallback;
 }
 
-// ------------------------------------------------------------
-// Date helper
-// ------------------------------------------------------------
-
 function dateOnly(value) {
   if (value === null || value === undefined) {
     return null;
   }
 
-  // Date object
   if (value instanceof Date) {
     if (Number.isNaN(value.getTime())) {
       return null;
     }
 
-    return value
-      .toISOString()
-      .slice(0, 10);
+    return value.toISOString().slice(0, 10);
   }
 
-  const valueString =
-    String(value).trim();
+  const valueString = String(value).trim();
 
   if (!valueString) {
     return null;
   }
 
-  // YYYY-MM-DD
-  if (
-    /^\d{4}-\d{2}-\d{2}$/.test(
-      valueString
-    )
-  ) {
+  if (/^\d{4}-\d{2}-\d{2}$/.test(valueString)) {
     return valueString;
   }
 
-  // ISO datetime
-  //
-  // 2026-09-04T18:30:00.000Z
-  //
-  if (
-    /^\d{4}-\d{2}-\d{2}T/.test(
-      valueString
-    )
-  ) {
-    return valueString.substring(
-      0,
-      10
-    );
+  if (/^\d{4}-\d{2}-\d{2}T/.test(valueString)) {
+    return valueString.substring(0, 10);
   }
 
-  // YYYY-MM-DD HH:mm:ss
-  if (
-    /^\d{4}-\d{2}-\d{2} /.test(
-      valueString
-    )
-  ) {
-    return valueString.substring(
-      0,
-      10
-    );
+  if (/^\d{4}-\d{2}-\d{2} /.test(valueString)) {
+    return valueString.substring(0, 10);
   }
 
-  // DD-MM-YYYY
-  if (
-    /^\d{2}-\d{2}-\d{4}$/.test(
-      valueString
-    )
-  ) {
-    const [
-      day,
-      month,
-      year,
-    ] = valueString.split("-");
+  if (/^\d{2}-\d{2}-\d{4}$/.test(valueString)) {
+    const [day, month, year] =
+      valueString.split("-");
 
     return `${year}-${month}-${day}`;
   }
 
-  // DD/MM/YYYY
-  if (
-    /^\d{2}\/\d{2}\/\d{4}$/.test(
-      valueString
-    )
-  ) {
-    const [
-      day,
-      month,
-      year,
-    ] = valueString.split("/");
+  if (/^\d{2}\/\d{2}\/\d{4}$/.test(valueString)) {
+    const [day, month, year] =
+      valueString.split("/");
 
     return `${year}-${month}-${day}`;
   }
@@ -199,20 +147,8 @@ function dateOnly(value) {
   return null;
 }
 
-// ------------------------------------------------------------
-// First row helper
-// ------------------------------------------------------------
-
-async function first(
-  sql,
-  params = []
-) {
-  const [rows] =
-    await db.execute(
-      sql,
-      params
-    );
-
+async function first(sql, params = []) {
+  const [rows] = await db.execute(sql, params);
   return rows[0];
 }
 
@@ -241,9 +177,7 @@ function issueToken(user) {
       name: user.name,
       role: user.role,
     },
-
     JWT_SECRET,
-
     {
       expiresIn: "7d",
     }
@@ -254,18 +188,12 @@ function issueToken(user) {
 // AUTH MIDDLEWARE
 // ============================================================
 
-function auth(
-  req,
-  res,
-  next
-) {
+function auth(req, res, next) {
   const header =
     req.headers.authorization || "";
 
   const token =
-    header.startsWith(
-      "Bearer "
-    )
+    header.startsWith("Bearer ")
       ? header.slice(7)
       : "";
 
@@ -276,11 +204,10 @@ function auth(
   }
 
   try {
-    req.user =
-      jwt.verify(
-        token,
-        JWT_SECRET
-      );
+    req.user = jwt.verify(
+      token,
+      JWT_SECRET
+    );
 
     next();
   } catch (error) {
@@ -294,18 +221,10 @@ function auth(
 // OWNER ONLY
 // ============================================================
 
-function ownerOnly(
-  req,
-  res,
-  next
-) {
-  if (
-    req.user?.role !==
-    "Owner"
-  ) {
+function ownerOnly(req, res, next) {
+  if (req.user?.role !== "Owner") {
     return res.status(403).json({
-      message:
-        "Owner access required.",
+      message: "Owner access required.",
     });
   }
 
@@ -340,51 +259,30 @@ function mapStudent(row) {
 
   return {
     id: row.id,
-
-    studentId:
-      row.student_id,
-
-    name:
-      row.name,
-
-    course:
-      row.course,
-
-    mobile:
-      row.mobile,
-
-    email:
-      row.email,
-
-    city:
-      row.city,
-
-    category:
-      row.category,
+    studentId: row.student_id,
+    name: row.name,
+    course: row.course,
+    mobile: row.mobile,
+    email: row.email,
+    city: row.city,
+    category: row.category,
 
     paidFee,
-
     balanceFee,
-
     totalFee,
 
     dueDate:
-      dateOnly(
-        row.due_date
-      ),
+      dateOnly(row.due_date),
 
     joinDate:
-      dateOnly(
-        row.join_date
-      ),
+      dateOnly(row.join_date),
 
     nextFollowUpDate,
 
     next_followup_date:
       nextFollowUpDate,
 
-    status:
-      row.status,
+    status: row.status,
   };
 }
 
@@ -419,34 +317,24 @@ app.use(
 // HEALTH
 // ============================================================
 
-app.get(
-  "/health",
-  async (req, res) => {
-    try {
-      await db.query(
-        "SELECT 1 AS ok"
-      );
+app.get("/health", async (req, res) => {
+  try {
+    await db.query("SELECT 1 AS ok");
 
-      res.json({
-        status: "ok",
-        service:
-          "SCOT IT Academy API",
-        database:
-          "connected",
-      });
-    } catch (error) {
-      res.status(500).json({
-        status: "error",
-        service:
-          "SCOT IT Academy API",
-        database:
-          "disconnected",
-        message:
-          error.message,
-      });
-    }
+    res.json({
+      status: "ok",
+      service: "SCOT IT Academy API",
+      database: "connected",
+    });
+  } catch (error) {
+    res.status(500).json({
+      status: "error",
+      service: "SCOT IT Academy API",
+      database: "disconnected",
+      message: error.message,
+    });
   }
-);
+});
 
 // ============================================================
 // AUTH - LOGIN
@@ -454,29 +342,15 @@ app.get(
 
 app.post(
   "/api/auth/login",
-  async (
-    req,
-    res,
-    next
-  ) => {
+  async (req, res, next) => {
     try {
       const username =
-        text(
-          req.body?.username
-        );
+        text(req.body?.username);
 
       const password =
         req.body?.password || "";
 
-      console.log(
-        "🔐 Login attempt:",
-        username
-      );
-
-      if (
-        !username ||
-        !password
-      ) {
+      if (!username || !password) {
         return res.status(400).json({
           message:
             "Username and password are required.",
@@ -500,38 +374,17 @@ app.post(
         );
 
       if (!user) {
-        console.log(
-          "❌ User not found:",
-          username
-        );
-
         return res.status(401).json({
           message:
             "Invalid username or password.",
         });
       }
 
-      console.log(
-        "✅ User found:",
-        {
-          id: user.id,
-          username: user.username,
-          role: user.role,
-          hasPasswordHash:
-            !!user.password_hash,
-        }
-      );
-
       const validPassword =
         await bcrypt.compare(
           password,
           user.password_hash
         );
-
-      console.log(
-        "🔑 Password valid:",
-        validPassword
-      );
 
       if (!validPassword) {
         return res.status(401).json({
@@ -545,14 +398,11 @@ app.post(
 
       return res.json({
         access,
-
-        user:
-          publicUser(user),
+        user: publicUser(user),
       });
-
     } catch (error) {
       console.error(
-        "❌ Login error:",
+        "Login error:",
         error
       );
 
@@ -567,21 +417,13 @@ app.post(
 
 app.post(
   "/api/auth/signup",
-  async (
-    req,
-    res,
-    next
-  ) => {
+  async (req, res, next) => {
     try {
       const name =
-        text(
-          req.body?.name
-        );
+        text(req.body?.name);
 
       const username =
-        text(
-          req.body?.username
-        );
+        text(req.body?.username);
 
       const password =
         req.body?.password || "";
@@ -607,9 +449,7 @@ app.post(
         });
       }
 
-      if (
-        password.length < 6
-      ) {
+      if (password.length < 6) {
         return res.status(400).json({
           message:
             "Password must contain at least 6 characters.",
@@ -619,9 +459,7 @@ app.post(
       const usernameOwner =
         await first(
           `
-          SELECT
-            id,
-            role
+          SELECT id, role
           FROM users
           WHERE LOWER(username)=LOWER(?)
           LIMIT 1
@@ -631,8 +469,7 @@ app.post(
 
       if (
         usernameOwner &&
-        usernameOwner.role !==
-          "Owner"
+        usernameOwner.role !== "Owner"
       ) {
         return res.status(409).json({
           message:
@@ -660,8 +497,7 @@ app.post(
       let ownerId;
 
       if (owner) {
-        ownerId =
-          owner.id;
+        ownerId = owner.id;
 
         await db.execute(
           `
@@ -728,20 +564,14 @@ app.post(
       }
 
       const access =
-        issueToken(
-          updatedOwner
-        );
+        issueToken(updatedOwner);
 
       return res.json({
         message:
           "Owner account updated successfully.",
-
         access,
-
         user:
-          publicUser(
-            updatedOwner
-          ),
+          publicUser(updatedOwner),
       });
     } catch (error) {
       if (
@@ -767,20 +597,13 @@ app.put(
   "/api/auth/update-owner",
   auth,
   ownerOnly,
-  async (
-    req,
-    res,
-    next
-  ) => {
+  async (req, res, next) => {
     try {
       const username =
-        text(
-          req.body?.username
-        );
+        text(req.body?.username);
 
       const currentPassword =
-        req.body?.current_password ||
-        "";
+        req.body?.current_password || "";
 
       if (!username) {
         return res.status(400).json({
@@ -836,10 +659,7 @@ app.put(
       const existingUser =
         await first(
           `
-          SELECT
-            id,
-            username,
-            role
+          SELECT id, username, role
           FROM users
           WHERE LOWER(username)=LOWER(?)
           LIMIT 1
@@ -888,20 +708,14 @@ app.put(
         );
 
       const access =
-        issueToken(
-          updatedOwner
-        );
+        issueToken(updatedOwner);
 
       return res.json({
         message:
           "Owner username updated successfully.",
-
         access,
-
         user:
-          publicUser(
-            updatedOwner
-          ),
+          publicUser(updatedOwner),
       });
     } catch (error) {
       if (
@@ -927,19 +741,13 @@ app.put(
   "/api/auth/update-password",
   auth,
   ownerOnly,
-  async (
-    req,
-    res,
-    next
-  ) => {
+  async (req, res, next) => {
     try {
       const currentPassword =
-        req.body?.current_password ||
-        "";
+        req.body?.current_password || "";
 
       const newPassword =
-        req.body?.new_password ||
-        "";
+        req.body?.new_password || "";
 
       if (!currentPassword) {
         return res.status(400).json({
@@ -955,9 +763,7 @@ app.put(
         });
       }
 
-      if (
-        newPassword.length < 6
-      ) {
+      if (newPassword.length < 6) {
         return res.status(400).json({
           message:
             "New password must contain at least 6 characters.",
@@ -965,8 +771,7 @@ app.put(
       }
 
       if (
-        currentPassword ===
-        newPassword
+        currentPassword === newPassword
       ) {
         return res.status(400).json({
           message:
@@ -1047,20 +852,14 @@ app.put(
         );
 
       const access =
-        issueToken(
-          updatedOwner
-        );
+        issueToken(updatedOwner);
 
       return res.json({
         message:
           "Password updated successfully.",
-
         access,
-
         user:
-          publicUser(
-            updatedOwner
-          ),
+          publicUser(updatedOwner),
       });
     } catch (error) {
       next(error);
@@ -1075,11 +874,7 @@ app.put(
 app.get(
   "/api/auth/me",
   auth,
-  async (
-    req,
-    res,
-    next
-  ) => {
+  async (req, res, next) => {
     try {
       const user =
         await first(
@@ -1119,11 +914,7 @@ app.get(
 app.get(
   "/api/students",
   auth,
-  async (
-    req,
-    res,
-    next
-  ) => {
+  async (req, res, next) => {
     try {
       const [rows] =
         await db.query(
@@ -1150,11 +941,7 @@ app.get(
 app.get(
   "/api/students/:id",
   auth,
-  async (
-    req,
-    res,
-    next
-  ) => {
+  async (req, res, next) => {
     try {
       const row =
         await first(
@@ -1194,11 +981,7 @@ app.get(
 app.post(
   "/api/students",
   auth,
-  async (
-    req,
-    res,
-    next
-  ) => {
+  async (req, res, next) => {
     try {
       const b =
         req.body || {};
@@ -1358,11 +1141,7 @@ app.post(
 app.patch(
   "/api/students/:id",
   auth,
-  async (
-    req,
-    res,
-    next
-  ) => {
+  async (req, res, next) => {
     try {
       const current =
         await first(
@@ -1478,12 +1257,9 @@ app.patch(
             );
 
       const nextFollowUpDate =
-        b.nextFollowUpDate !==
-          undefined ||
-        b.next_followup_date !==
-          undefined ||
-        b.next_follow_up_date !==
-          undefined
+        b.nextFollowUpDate !== undefined ||
+        b.next_followup_date !== undefined ||
+        b.next_follow_up_date !== undefined
           ? dateOnly(
               b.nextFollowUpDate ??
                 b.next_followup_date ??
@@ -1574,11 +1350,7 @@ app.patch(
 app.delete(
   "/api/students/:id",
   auth,
-  async (
-    req,
-    res,
-    next
-  ) => {
+  async (req, res, next) => {
     try {
       const [result] =
         await db.execute(
@@ -1593,9 +1365,7 @@ app.delete(
           ]
         );
 
-      if (
-        result.affectedRows === 0
-      ) {
+      if (result.affectedRows === 0) {
         return res.status(404).json({
           message:
             "Student not found.",
@@ -1618,11 +1388,7 @@ app.delete(
 app.get(
   "/api/enquiries",
   auth,
-  async (
-    req,
-    res,
-    next
-  ) => {
+  async (req, res, next) => {
     try {
       const [rows] =
         await db.query(
@@ -1634,21 +1400,19 @@ app.get(
         );
 
       return res.json(
-        rows.map(
-          (row) => ({
-            ...row,
+        rows.map((row) => ({
+          ...row,
 
-            enquiry_date:
-              dateOnly(
-                row.enquiry_date
-              ),
+          enquiry_date:
+            dateOnly(
+              row.enquiry_date
+            ),
 
-            next_followup_date:
-              dateOnly(
-                row.next_followup_date
-              ),
-          })
-        )
+          next_followup_date:
+            dateOnly(
+              row.next_followup_date
+            ),
+        }))
       );
     } catch (error) {
       console.error(
@@ -1668,11 +1432,7 @@ app.get(
 app.get(
   "/api/enquiries/:id",
   auth,
-  async (
-    req,
-    res,
-    next
-  ) => {
+  async (req, res, next) => {
     try {
       const row =
         await first(
@@ -1716,11 +1476,7 @@ app.get(
 app.post(
   "/api/enquiries",
   auth,
-  async (
-    req,
-    res,
-    next
-  ) => {
+  async (req, res, next) => {
     try {
       const b =
         req.body || {};
@@ -1756,7 +1512,11 @@ app.post(
         text(b.city);
 
       const type =
-        text(b.type);
+        text(
+          b.type ??
+            b.education ??
+            b.degree
+        );
 
       const category =
         text(b.category);
@@ -1837,7 +1597,6 @@ app.post(
           ]
         );
 
-
       const row =
         await first(
           `
@@ -1880,11 +1639,7 @@ app.post(
 app.patch(
   "/api/enquiries/:id",
   auth,
-  async (
-    req,
-    res,
-    next
-  ) => {
+  async (req, res, next) => {
     try {
       const id =
         req.params.id;
@@ -1923,13 +1678,11 @@ app.patch(
         );
 
       const enquiryDate =
-        b.enquiry_date !==
-        undefined
+        b.enquiry_date !== undefined
           ? dateOnly(
               b.enquiry_date
             )
-          : b.enquiryDate !==
-            undefined
+          : b.enquiryDate !== undefined
           ? dateOnly(
               b.enquiryDate
             )
@@ -1959,6 +1712,8 @@ app.patch(
       const type =
         text(
           b.type ??
+            b.education ??
+            b.degree ??
             old.type
         );
 
@@ -1981,18 +1736,15 @@ app.patch(
         );
 
       const followUpDate =
-        b.next_followup_date !==
-        undefined
+        b.next_followup_date !== undefined
           ? dateOnly(
               b.next_followup_date
             )
-          : b.nextFollowupDate !==
-            undefined
+          : b.nextFollowupDate !== undefined
           ? dateOnly(
               b.nextFollowupDate
             )
-          : b.next_follow_up_date !==
-            undefined
+          : b.next_follow_up_date !== undefined
           ? dateOnly(
               b.next_follow_up_date
             )
@@ -2051,7 +1803,6 @@ app.patch(
         ]
       );
 
-
       const updated =
         await first(
           `
@@ -2094,11 +1845,7 @@ app.patch(
 app.delete(
   "/api/enquiries/:id",
   auth,
-  async (
-    req,
-    res,
-    next
-  ) => {
+  async (req, res, next) => {
     try {
       const [result] =
         await db.execute(
@@ -2109,9 +1856,7 @@ app.delete(
           [req.params.id]
         );
 
-      if (
-        result.affectedRows === 0
-      ) {
+      if (result.affectedRows === 0) {
         return res.status(404).json({
           message:
             "Enquiry not found.",
@@ -2137,11 +1882,7 @@ app.delete(
 app.get(
   "/api/follow-ups",
   auth,
-  async (
-    req,
-    res,
-    next
-  ) => {
+  async (req, res, next) => {
     try {
       const [rows] =
         await db.query(
@@ -2157,24 +1898,387 @@ app.get(
         );
 
       return res.json(
-        rows.map(
-          (row) => ({
-            ...row,
+        rows.map((row) => ({
+          ...row,
 
-            enquiry_date:
-              dateOnly(
-                row.enquiry_date
-              ),
+          enquiry_date:
+            dateOnly(
+              row.enquiry_date
+            ),
 
-            next_followup_date:
-              dateOnly(
-                row.next_followup_date
-              ),
-          })
-        )
+          next_followup_date:
+            dateOnly(
+              row.next_followup_date
+            ),
+        }))
       );
     } catch (error) {
       next(error);
+    }
+  }
+);
+
+// ======================================================
+// TYPE API
+// ======================================================
+
+app.get(
+  ["/api/types", "/api/types/"],
+  auth,
+  async (req, res) => {
+    try {
+      const [rows] = await db.query(`
+        SELECT
+          id,
+          name,
+          created_at
+        FROM types
+        ORDER BY id ASC
+      `);
+
+      return res.json(rows);
+    } catch (error) {
+      console.error(
+        "GET /api/types error:",
+        error
+      );
+
+      return res.status(500).json({
+        message: "Failed to load types.",
+        error: error.message,
+      });
+    }
+  }
+);
+
+app.get(
+  "/api/types/:id",
+  auth,
+  async (req, res) => {
+    try {
+      const [rows] =
+        await db.execute(
+          `
+          SELECT
+            id,
+            name,
+            created_at
+          FROM types
+          WHERE id = ?
+          LIMIT 1
+          `,
+          [req.params.id]
+        );
+
+      if (!rows.length) {
+        return res.status(404).json({
+          message: "Type not found.",
+        });
+      }
+
+      return res.json(rows[0]);
+    } catch (error) {
+      console.error(
+        "GET /api/types/:id error:",
+        error
+      );
+
+      return res.status(500).json({
+        message: "Failed to load type.",
+        error: error.message,
+      });
+    }
+  }
+);
+
+app.post(
+  ["/api/types", "/api/types/"],
+  auth,
+  async (req, res) => {
+    try {
+      const name = String(
+        req.body?.name ??
+        req.body?.type ??
+        req.body?.title ??
+        ""
+      ).trim();
+
+      if (!name) {
+        return res.status(400).json({
+          message:
+            "Type name is required.",
+        });
+      }
+
+      const [existingRows] =
+        await db.execute(
+          `
+          SELECT
+            id,
+            name
+          FROM types
+          WHERE LOWER(name) = LOWER(?)
+          LIMIT 1
+          `,
+          [name]
+        );
+
+      if (existingRows.length) {
+        return res.status(409).json({
+          message:
+            "This type already exists.",
+        });
+      }
+
+      const [result] =
+        await db.execute(
+          `
+          INSERT INTO types (name)
+          VALUES (?)
+          `,
+          [name]
+        );
+
+      const [rows] =
+        await db.execute(
+          `
+          SELECT
+            id,
+            name,
+            created_at
+          FROM types
+          WHERE id = ?
+          LIMIT 1
+          `,
+          [result.insertId]
+        );
+
+      return res.status(201).json(
+        rows[0]
+      );
+    } catch (error) {
+      console.error(
+        "POST /api/types error:",
+        error
+      );
+
+      return res.status(500).json({
+        message:
+          "Failed to create type.",
+        error: error.message,
+      });
+    }
+  }
+);
+
+app.patch(
+  ["/api/types/:id", "/api/types/:id/"],
+  auth,
+  async (req, res) => {
+    try {
+      const id =
+        Number(req.params.id);
+
+      const newName = String(
+        req.body?.name ??
+        req.body?.type ??
+        req.body?.title ??
+        ""
+      ).trim();
+
+      if (!newName) {
+        return res.status(400).json({
+          message:
+            "Type name is required.",
+        });
+      }
+
+      const [oldRows] =
+        await db.execute(
+          `
+          SELECT
+            id,
+            name
+          FROM types
+          WHERE id = ?
+          LIMIT 1
+          `,
+          [id]
+        );
+
+      if (!oldRows.length) {
+        return res.status(404).json({
+          message:
+            "Type not found.",
+        });
+      }
+
+      const oldName =
+        oldRows[0].name;
+
+      const [duplicateRows] =
+        await db.execute(
+          `
+          SELECT
+            id,
+            name
+          FROM types
+          WHERE LOWER(name) = LOWER(?)
+            AND id != ?
+          LIMIT 1
+          `,
+          [
+            newName,
+            id,
+          ]
+        );
+
+      if (duplicateRows.length) {
+        return res.status(409).json({
+          message:
+            "This type already exists.",
+        });
+      }
+
+      await db.execute(
+        `
+        UPDATE types
+        SET name = ?
+        WHERE id = ?
+        `,
+        [
+          newName,
+          id,
+        ]
+      );
+
+      /*
+       * Update existing enquiry records
+       * because enquiries store type as text.
+       */
+
+      await db.execute(
+        `
+        UPDATE enquiries
+        SET type = ?
+        WHERE type = ?
+        `,
+        [
+          newName,
+          oldName,
+        ]
+      );
+
+      const [updatedRows] =
+        await db.execute(
+          `
+          SELECT
+            id,
+            name,
+            created_at
+          FROM types
+          WHERE id = ?
+          LIMIT 1
+          `,
+          [id]
+        );
+
+      return res.json(
+        updatedRows[0]
+      );
+    } catch (error) {
+      console.error(
+        "PATCH /api/types/:id error:",
+        error
+      );
+
+      return res.status(500).json({
+        message:
+          "Failed to update type.",
+        error: error.message,
+      });
+    }
+  }
+);
+
+app.delete(
+  ["/api/types/:id", "/api/types/:id/"],
+  auth,
+  async (req, res) => {
+    try {
+      const id =
+        Number(req.params.id);
+
+      const [typeRows] =
+        await db.execute(
+          `
+          SELECT
+            id,
+            name
+          FROM types
+          WHERE id = ?
+          LIMIT 1
+          `,
+          [id]
+        );
+
+      if (!typeRows.length) {
+        return res.status(404).json({
+          message:
+            "Type not found.",
+        });
+      }
+
+      const typeName =
+        typeRows[0].name;
+
+      const [usageRows] =
+        await db.execute(
+          `
+          SELECT
+            COUNT(*) AS total
+          FROM enquiries
+          WHERE type = ?
+          `,
+          [typeName]
+        );
+
+      const usedCount =
+        Number(
+          usageRows[0]?.total || 0
+        );
+
+      if (usedCount > 0) {
+        return res.status(409).json({
+          message:
+            `This type is used by ${usedCount} enquiry record(s). Please rename it instead of deleting it.`,
+          usedCount,
+        });
+      }
+
+      await db.execute(
+        `
+        DELETE FROM types
+        WHERE id = ?
+        `,
+        [id]
+      );
+
+      return res.json({
+        deleted: true,
+        id,
+      });
+    } catch (error) {
+      console.error(
+        "DELETE /api/types/:id error:",
+        error
+      );
+
+      return res.status(500).json({
+        message:
+          "Failed to delete type.",
+        error: error.message,
+      });
     }
   }
 );
@@ -2186,11 +2290,7 @@ app.get(
 app.get(
   "/api/categories",
   auth,
-  async (
-    req,
-    res,
-    next
-  ) => {
+  async (req, res, next) => {
     try {
       const [rows] =
         await db.query(
@@ -2203,9 +2303,7 @@ app.get(
           `
         );
 
-      return res.json(
-        rows
-      );
+      return res.json(rows);
     } catch (error) {
       next(error);
     }
@@ -2219,11 +2317,7 @@ app.get(
 app.post(
   "/api/categories",
   auth,
-  async (
-    req,
-    res,
-    next
-  ) => {
+  async (req, res, next) => {
     try {
       const name =
         text(
@@ -2241,10 +2335,9 @@ app.post(
       const existing =
         await first(
           `
-          SELECT
-            id
+          SELECT id
           FROM categories
-          WHERE LOWER(name) = LOWER(?)
+          WHERE LOWER(name)=LOWER(?)
           LIMIT 1
           `,
           [name]
@@ -2279,7 +2372,7 @@ app.post(
           [result.insertId]
         );
 
-      return res.json(
+      return res.status(201).json(
         row
       );
     } catch (error) {
@@ -2305,11 +2398,7 @@ app.post(
 app.patch(
   "/api/categories/:id",
   auth,
-  async (
-    req,
-    res,
-    next
-  ) => {
+  async (req, res, next) => {
     try {
       const name =
         text(
@@ -2327,8 +2416,7 @@ app.patch(
       const old =
         await first(
           `
-          SELECT
-            id
+          SELECT id, name
           FROM categories
           WHERE id=?
           LIMIT 1
@@ -2346,14 +2434,16 @@ app.patch(
       const duplicate =
         await first(
           `
-          SELECT
-            id
+          SELECT id
           FROM categories
           WHERE LOWER(name)=LOWER(?)
             AND id != ?
           LIMIT 1
           `,
-          [name, old.id]
+          [
+            name,
+            old.id,
+          ]
         );
 
       if (duplicate) {
@@ -2402,11 +2492,7 @@ app.patch(
 app.delete(
   "/api/categories/:id",
   auth,
-  async (
-    req,
-    res,
-    next
-  ) => {
+  async (req, res, next) => {
     try {
       const [result] =
         await db.execute(
@@ -2434,11 +2520,7 @@ app.delete(
 app.get(
   "/api/referrals",
   auth,
-  async (
-    req,
-    res,
-    next
-  ) => {
+  async (req, res, next) => {
     try {
       const [rows] =
         await db.query(
@@ -2451,9 +2533,7 @@ app.get(
           `
         );
 
-      return res.json(
-        rows
-      );
+      return res.json(rows);
     } catch (error) {
       next(error);
     }
@@ -2467,16 +2547,10 @@ app.get(
 app.post(
   "/api/referrals",
   auth,
-  async (
-    req,
-    res,
-    next
-  ) => {
+  async (req, res, next) => {
     try {
       const name =
-        text(
-          req.body?.name
-        );
+        text(req.body?.name);
 
       if (!name) {
         return res.status(400).json({
@@ -2494,10 +2568,9 @@ app.post(
           [name]
         );
 
-      return res.json({
+      return res.status(201).json({
         id:
           result.insertId,
-
         name,
       });
     } catch (error) {
@@ -2513,16 +2586,10 @@ app.post(
 app.patch(
   "/api/referrals/:id",
   auth,
-  async (
-    req,
-    res,
-    next
-  ) => {
+  async (req, res, next) => {
     try {
       const name =
-        text(
-          req.body?.name
-        );
+        text(req.body?.name);
 
       if (!name) {
         return res.status(400).json({
@@ -2531,17 +2598,25 @@ app.patch(
         });
       }
 
-      await db.execute(
-        `
-        UPDATE referrals
-        SET name=?
-        WHERE id=?
-        `,
-        [
-          name,
-          req.params.id,
-        ]
-      );
+      const [result] =
+        await db.execute(
+          `
+          UPDATE referrals
+          SET name=?
+          WHERE id=?
+          `,
+          [
+            name,
+            req.params.id,
+          ]
+        );
+
+      if (result.affectedRows === 0) {
+        return res.status(404).json({
+          message:
+            "Referral not found.",
+        });
+      }
 
       const row =
         await first(
@@ -2555,16 +2630,7 @@ app.patch(
           [req.params.id]
         );
 
-      if (!row) {
-        return res.status(404).json({
-          message:
-            "Referral not found.",
-        });
-      }
-
-      return res.json(
-        row
-      );
+      return res.json(row);
     } catch (error) {
       next(error);
     }
@@ -2578,11 +2644,7 @@ app.patch(
 app.delete(
   "/api/referrals/:id",
   auth,
-  async (
-    req,
-    res,
-    next
-  ) => {
+  async (req, res, next) => {
     try {
       const [result] =
         await db.execute(
@@ -2611,11 +2673,7 @@ app.get(
   "/api/admins",
   auth,
   ownerOnly,
-  async (
-    req,
-    res,
-    next
-  ) => {
+  async (req, res, next) => {
     try {
       const [rows] =
         await db.query(
@@ -2632,17 +2690,11 @@ app.get(
         );
 
       return res.json(
-        rows.map(
-          (row) => ({
-            ...row,
-
-            role:
-              "Administrator",
-
-            status:
-              "Active",
-          })
-        )
+        rows.map((row) => ({
+          ...row,
+          role: "Administrator",
+          status: "Active",
+        }))
       );
     } catch (error) {
       next(error);
@@ -2658,26 +2710,16 @@ app.post(
   "/api/admins",
   auth,
   ownerOnly,
-  async (
-    req,
-    res,
-    next
-  ) => {
+  async (req, res, next) => {
     try {
       const name =
-        text(
-          req.body?.name
-        );
+        text(req.body?.name);
 
       const username =
-        text(
-          req.body?.username
-        );
+        text(req.body?.username);
 
       const password =
-        text(
-          req.body?.password
-        );
+        text(req.body?.password);
 
       if (
         !name ||
@@ -2690,9 +2732,7 @@ app.post(
         });
       }
 
-      if (
-        password.length < 6
-      ) {
+      if (password.length < 6) {
         return res.status(400).json({
           message:
             "Password must contain at least 6 characters.",
@@ -2742,17 +2782,13 @@ app.post(
           ]
         );
 
-      return res.json({
+      return res.status(201).json({
         id:
           result.insertId,
-
         name,
-
         username,
-
         role:
           "Administrator",
-
         status:
           "Active",
       });
@@ -2780,11 +2816,7 @@ app.patch(
   "/api/admins/:id",
   auth,
   ownerOnly,
-  async (
-    req,
-    res,
-    next
-  ) => {
+  async (req, res, next) => {
     try {
       const old =
         await first(
@@ -2806,19 +2838,15 @@ app.patch(
       }
 
       const name =
-        text(
-          req.body?.name
-        ) || old.name;
+        text(req.body?.name) ||
+        old.name;
 
       const username =
-        text(
-          req.body?.username
-        ) || old.username;
+        text(req.body?.username) ||
+        old.username;
 
       const password =
-        text(
-          req.body?.password
-        );
+        text(req.body?.password);
 
       if (password) {
         await db.execute(
@@ -2862,14 +2890,10 @@ app.patch(
       return res.json({
         id:
           old.id,
-
         name,
-
         username,
-
         role:
           "Administrator",
-
         status:
           "Active",
       });
@@ -2897,11 +2921,7 @@ app.delete(
   "/api/admins/:id",
   auth,
   ownerOnly,
-  async (
-    req,
-    res,
-    next
-  ) => {
+  async (req, res, next) => {
     try {
       const [result] =
         await db.execute(
@@ -2930,11 +2950,7 @@ app.delete(
 app.get(
   "/api/dashboard",
   auth,
-  async (
-    req,
-    res,
-    next
-  ) => {
+  async (req, res, next) => {
     try {
       const totals =
         await first(
@@ -3007,30 +3023,16 @@ app.get(
       const recent =
         recentRows.map(
           (row) => [
-            row.admin ||
-              "Owner",
-
-            row.candidate_name ||
-              "",
-
-            row.mobile ||
-              "",
-
-            row.city ||
-              "",
-
-            row.category ||
-              "",
-
-            row.course ||
-              "",
-
+            row.admin || "Owner",
+            row.candidate_name || "",
+            row.mobile || "",
+            row.city || "",
+            row.category || "",
+            row.course || "",
             dateOnly(
               row.next_followup_date
             ) || "",
-
-            row.status ||
-              "Pending",
+            row.status || "Pending",
           ]
         );
 
@@ -3076,11 +3078,9 @@ app.get(
           categories.map(
             (row) => [
               row.name,
-
               Number(
                 row.students
               ),
-
               0,
             ]
           ),
@@ -3088,9 +3088,7 @@ app.get(
 
       return res.json({
         ...data,
-
-        summary:
-          data,
+        summary: data,
       });
     } catch (error) {
       console.error(
@@ -3110,11 +3108,7 @@ app.get(
 app.get(
   "/api/reports",
   auth,
-  async (
-    req,
-    res,
-    next
-  ) => {
+  async (req, res, next) => {
     try {
       const totals =
         await first(
@@ -3185,9 +3179,7 @@ app.get(
         categories:
           categories.map(
             (row) => ({
-              name:
-                row.name,
-
+              name: row.name,
               students:
                 Number(
                   row.students
@@ -3208,11 +3200,7 @@ app.get(
 app.get(
   "/api/notifications",
   auth,
-  async (
-    req,
-    res,
-    next
-  ) => {
+  async (req, res, next) => {
     try {
       const [rows] =
         await db.query(
@@ -3264,11 +3252,7 @@ app.get(
 app.get(
   "/api/settings",
   auth,
-  async (
-    req,
-    res,
-    next
-  ) => {
+  async (req, res, next) => {
     try {
       const [rows] =
         await db.query(
@@ -3280,8 +3264,7 @@ app.get(
           `
         );
 
-      const result =
-        {};
+      const result = {};
 
       rows.forEach(
         (row) => {
@@ -3311,9 +3294,7 @@ app.get(
         }
       );
 
-      return res.json(
-        result
-      );
+      return res.json(result);
     } catch (error) {
       next(error);
     }
@@ -3327,11 +3308,7 @@ app.get(
 app.patch(
   "/api/settings",
   auth,
-  async (
-    req,
-    res,
-    next
-  ) => {
+  async (req, res, next) => {
     try {
       for (
         const [
@@ -3355,9 +3332,7 @@ app.patch(
           `,
           [
             key,
-            JSON.stringify(
-              value
-            ),
+            JSON.stringify(value),
           ]
         );
       }
@@ -3381,13 +3356,20 @@ async function initializeSchema() {
   );
 
   try {
-    await db.query("SELECT 1");
+    await db.query(
+      "SELECT 1"
+    );
   } catch (error) {
-    if (error.code === "ENOTFOUND") {
+    if (
+      error.code ===
+      "ENOTFOUND"
+    ) {
       throw new Error(
         `Database host "${DB_CONFIG.host}" could not be resolved. ` +
           "Update DATABASE_URL (or DB_HOST) in Render with the current MySQL endpoint.",
-        { cause: error }
+        {
+          cause: error,
+        }
       );
     }
 
@@ -3506,8 +3488,7 @@ async function initializeSchema() {
   ] =
     await db.query(
       `
-      SELECT
-        COLUMN_NAME
+      SELECT COLUMN_NAME
       FROM INFORMATION_SCHEMA.COLUMNS
       WHERE TABLE_SCHEMA=?
         AND TABLE_NAME='students'
@@ -3595,20 +3576,110 @@ async function initializeSchema() {
     DEFAULT CHARSET=utf8mb4
   `);
 
-  // Add 'type' column if it doesn't exist (migration for existing DB)
+  // ==========================================================
+  // ENQUIRIES TYPE MIGRATION
+  // ==========================================================
+
   try {
-    const [cols] = await db.query(
-      `SHOW COLUMNS FROM enquiries LIKE 'type'`
-    );
+    const [cols] =
+      await db.query(
+        `
+        SHOW COLUMNS
+        FROM enquiries
+        LIKE 'type'
+        `
+      );
+
     if (cols.length === 0) {
       await db.query(
-        `ALTER TABLE enquiries ADD COLUMN type VARCHAR(100) NOT NULL DEFAULT '' AFTER city`
+        `
+        ALTER TABLE enquiries
+        ADD COLUMN type VARCHAR(100)
+        NOT NULL DEFAULT ''
+        AFTER city
+        `
       );
-      console.log("✅ enquiries.type column added.");
+
+      console.log(
+        "enquiries.type column added."
+      );
     }
-  } catch (e) {
-    console.warn("Could not add type column:", e.message);
+  } catch (error) {
+    console.warn(
+      "Could not add enquiries.type:",
+      error.message
+    );
   }
+
+  // ==========================================================
+  // TYPES
+  // ==========================================================
+
+  await db.query(`
+    CREATE TABLE IF NOT EXISTS types (
+
+      id INT UNSIGNED
+        NOT NULL AUTO_INCREMENT,
+
+      name VARCHAR(150)
+        NOT NULL,
+
+      created_at TIMESTAMP
+        DEFAULT CURRENT_TIMESTAMP,
+
+      PRIMARY KEY(id),
+
+      UNIQUE KEY
+        uq_type_name(name)
+
+    )
+    ENGINE=InnoDB
+    DEFAULT CHARSET=utf8mb4
+  `);
+
+  // ==========================================================
+  // DEFAULT TYPES
+  // ==========================================================
+
+  const defaultTypes = [
+    "Students",
+    "Freshers",
+    "Experience in Non IT",
+    "Experience in IT",
+    "Career Gap",
+    "Others",
+  ];
+
+  for (
+    const typeName of defaultTypes
+  ) {
+    try {
+      await db.execute(
+        `
+        INSERT INTO types(name)
+        SELECT ?
+        WHERE NOT EXISTS (
+          SELECT 1
+          FROM types
+          WHERE LOWER(name)=LOWER(?)
+        )
+        `,
+        [
+          typeName,
+          typeName,
+        ]
+      );
+    } catch (error) {
+      console.warn(
+        `Could not insert default type "${typeName}":`,
+        error.message
+      );
+    }
+  }
+
+  console.log(
+    "Type master table is ready."
+  );
 
   // ==========================================================
   // CATEGORIES
@@ -3713,7 +3784,12 @@ async function initializeSchema() {
     )
     ENGINE=InnoDB
     DEFAULT CHARSET=utf8mb4
-  `)};
+  `);
+
+  console.log(
+    "All database tables checked successfully."
+  );
+}
 
 // ============================================================
 // DEFAULT OWNER
@@ -3721,120 +3797,95 @@ async function initializeSchema() {
 
 async function ensureDefaultOwner() {
   try {
-    const username = String(
-      process.env.OWNER_USERNAME || ""
-    ).trim();
+    const username =
+      String(
+        process.env.OWNER_USERNAME || ""
+      ).trim();
 
-    const password = String(
-      process.env.OWNER_PASSWORD || ""
-    ).trim();
+    const password =
+      String(
+        process.env.OWNER_PASSWORD || ""
+      ).trim();
 
-    const name = String(
-      process.env.OWNER_NAME ||
-        "SCOT IT Academy Owner"
-    ).trim();
+    const name =
+      String(
+        process.env.OWNER_NAME ||
+          "SCOT IT Academy Owner"
+      ).trim();
 
-    // --------------------------------------------------------
-    // LOG CONFIGURATION
-    // --------------------------------------------------------
-
-    console.log("🔐 Owner configuration:", {
-      username,
-      passwordConfigured: Boolean(password),
-      passwordLength: password.length,
-      name,
-    });
-
-    // --------------------------------------------------------
-    // CHECK ENVIRONMENT VARIABLES
-    // --------------------------------------------------------
+    console.log(
+      "Owner configuration:",
+      {
+        username,
+        passwordConfigured:
+          Boolean(password),
+        passwordLength:
+          password.length,
+        name,
+      }
+    );
 
     if (!username || !password) {
       console.error(
-        "❌ OWNER_USERNAME or OWNER_PASSWORD is missing."
+        "OWNER_USERNAME or OWNER_PASSWORD is missing."
       );
 
       console.error(
-        "👉 Add OWNER_USERNAME and OWNER_PASSWORD to the Render Web Service Environment Variables."
+        "Add OWNER_USERNAME and OWNER_PASSWORD to Render Environment Variables."
       );
 
       return false;
     }
 
-    console.log(
-      "🔐 Checking default Owner account..."
-    );
-
-    // --------------------------------------------------------
-    // CHECK WHETHER USERNAME IS ALREADY USED
-    // --------------------------------------------------------
-
-    const usernameUser = await first(
-      `
-      SELECT
-        id,
-        username,
-        role
-      FROM users
-      WHERE LOWER(username) = LOWER(?)
-      LIMIT 1
-      `,
-      [username]
-    );
-
-    // --------------------------------------------------------
-    // USERNAME BELONGS TO ADMIN
-    // --------------------------------------------------------
+    const usernameUser =
+      await first(
+        `
+        SELECT
+          id,
+          username,
+          role
+        FROM users
+        WHERE LOWER(username)=LOWER(?)
+        LIMIT 1
+        `,
+        [username]
+      );
 
     if (
       usernameUser &&
-      String(usernameUser.role || "")
-        .toLowerCase() !== "owner"
+      String(
+        usernameUser.role || ""
+      ).toLowerCase() !==
+        "owner"
     ) {
       console.error(
-        `❌ Username "${username}" is already used by another user.`
-      );
-
-      console.error(
-        "👉 Change OWNER_USERNAME in Render."
+        `Username "${username}" is already used by another user.`
       );
 
       return false;
     }
 
-    // --------------------------------------------------------
-    // FIND EXISTING OWNER
-    // --------------------------------------------------------
-
-    let owner = await first(
-      `
-      SELECT
-        id,
-        username,
-        name,
-        role,
-        password_hash
-      FROM users
-      WHERE role = 'Owner' OR LOWER(username) = LOWER(?)
-      ORDER BY (role = 'Owner') DESC, id ASC
-      LIMIT 1
-      `,
-      [username]
-    );
-
-    // --------------------------------------------------------
-    // CREATE OWNER IF NOT EXISTS
-    // --------------------------------------------------------
+    let owner =
+      await first(
+        `
+        SELECT
+          id,
+          username,
+          name,
+          role,
+          password_hash
+        FROM users
+        WHERE role='Owner'
+           OR LOWER(username)=LOWER(?)
+        ORDER BY
+          (role='Owner') DESC,
+          id ASC
+        LIMIT 1
+        `,
+        [username]
+      );
 
     if (!owner) {
-      console.log(
-        "👤 No Owner account found."
-      );
-
-      console.log(
-        "🔐 Creating Owner account..."
-      );
-
       const passwordHash =
         await bcrypt.hash(
           password,
@@ -3862,76 +3913,38 @@ async function ensureDefaultOwner() {
           );
 
         console.log(
-          "======================================"
-        );
-
-        console.log(
-          `✅ Owner created successfully.`
-        );
-
-        console.log(
-          `👤 Owner ID: ${result.insertId}`
-        );
-
-        console.log(
-          `👤 Owner username: ${username}`
-        );
-
-        console.log(
-          "======================================"
+          `Owner created successfully. ID: ${result.insertId}`
         );
 
         return true;
       } catch (insertError) {
-        if (insertError?.code === "ER_DUP_ENTRY") {
-          console.warn(
-            "⚠️ Owner insert hit duplicate key, fetching existing record..."
-          );
-          owner = await first(
-            `
-            SELECT
-              id,
-              username,
-              name,
-              role,
-              password_hash
-            FROM users
-            WHERE LOWER(username) = LOWER(?)
-            LIMIT 1
-            `,
-            [username]
-          );
+        if (
+          insertError?.code ===
+          "ER_DUP_ENTRY"
+        ) {
+          owner =
+            await first(
+              `
+              SELECT
+                id,
+                username,
+                name,
+                role,
+                password_hash
+              FROM users
+              WHERE LOWER(username)=LOWER(?)
+              LIMIT 1
+              `,
+              [username]
+            );
         } else {
           throw insertError;
         }
       }
     }
 
-    // --------------------------------------------------------
-    // EXISTING OWNER
-    // --------------------------------------------------------
-
-    console.log(
-      "👤 Existing Owner:",
-      {
-        id: owner.id,
-        username: owner.username,
-        name: owner.name,
-        role: owner.role,
-        hasPasswordHash:
-          Boolean(owner.password_hash),
-        passwordHashLength:
-          owner.password_hash
-            ? owner.password_hash.length
-            : 0,
-      }
-    );
-
-    let updateRequired = false;
-
-    // --------------------------------------------------------
-    // CHECK USERNAME
-    // --------------------------------------------------------
+    let updateRequired =
+      false;
 
     const currentUsername =
       String(
@@ -3945,10 +3958,6 @@ async function ensureDefaultOwner() {
       updateRequired = true;
     }
 
-    // --------------------------------------------------------
-    // CHECK NAME
-    // --------------------------------------------------------
-
     const currentName =
       String(
         owner.name || ""
@@ -3960,11 +3969,8 @@ async function ensureDefaultOwner() {
       updateRequired = true;
     }
 
-    // --------------------------------------------------------
-    // CHECK PASSWORD
-    // --------------------------------------------------------
-
-    let passwordMatches = false;
+    let passwordMatches =
+      false;
 
     if (owner.password_hash) {
       try {
@@ -3973,33 +3979,17 @@ async function ensureDefaultOwner() {
             password,
             owner.password_hash
           );
-      } catch (error) {
-        console.error(
-          "⚠️ Could not compare Owner password hash."
-        );
-
-        passwordMatches = false;
+      } catch {
+        passwordMatches =
+          false;
       }
     }
-
-    console.log(
-      "🔑 Default owner password matches:",
-      passwordMatches
-    );
 
     if (!passwordMatches) {
       updateRequired = true;
     }
 
-    // --------------------------------------------------------
-    // UPDATE OWNER
-    // --------------------------------------------------------
-
     if (updateRequired) {
-      console.log(
-        "🔄 Owner information needs synchronization..."
-      );
-
       const passwordHash =
         passwordMatches
           ? owner.password_hash
@@ -4012,11 +4002,11 @@ async function ensureDefaultOwner() {
         `
         UPDATE users
         SET
-          username = ?,
-          password_hash = ?,
-          name = ?
-        WHERE id = ?
-          AND role = 'Owner'
+          username=?,
+          password_hash=?,
+          name=?
+        WHERE id=?
+          AND role='Owner'
         `,
         [
           username,
@@ -4027,55 +4017,34 @@ async function ensureDefaultOwner() {
       );
 
       console.log(
-        "======================================"
-      );
-
-      console.log(
-        "✅ Owner synchronized successfully."
-      );
-
-      console.log(
-        `👤 Username: ${username}`
-      );
-
-      console.log(
-        `👤 Name: ${name}`
-      );
-
-      console.log(
-        "======================================"
+        "Owner synchronized successfully."
       );
     } else {
       console.log(
-        `✅ Owner already exists and is synchronized: ${username}`
+        `Owner already synchronized: ${username}`
       );
     }
 
     return true;
-
   } catch (error) {
     console.error(
-      "❌ Failed to create/synchronize Owner:"
+      "Failed to create/synchronize Owner:",
+      error
     );
-
-    console.error(error);
 
     throw error;
   }
 }
 
 // ============================================================
-// 404
+// 404 HANDLER
 // ============================================================
 
 app.use(
   (req, res) => {
     res.status(404).json({
-      message:
-        "Not found",
-
-      path:
-        req.originalUrl,
+      message: "Not found",
+      path: req.originalUrl,
     });
   }
 );
@@ -4095,9 +4064,7 @@ app.use(
       "SERVER ERROR:"
     );
 
-    console.error(
-      error
-    );
+    console.error(error);
 
     if (
       error?.code ===
@@ -4116,6 +4083,7 @@ app.use(
       return res.status(500).json({
         message:
           "Required database table does not exist.",
+
         error:
           process.env.NODE_ENV ===
           "development"
@@ -4144,53 +4112,86 @@ app.use(
 async function startServer() {
   try {
     console.log("");
-    console.log("======================================");
-    console.log("SCOT IT Academy API - Starting...");
-    console.log("======================================");
+    console.log(
+      "======================================"
+    );
+    console.log(
+      "SCOT IT Academy API - Starting..."
+    );
+    console.log(
+      "======================================"
+    );
 
-    // STEP 1:
-    // Connect to MySQL and create all required tables.
+    // STEP 1
     await initializeSchema();
 
     console.log("");
-    console.log("✅ Database schema is ready.");
+    console.log(
+      "Database schema is ready."
+    );
 
-    // STEP 2:
-    // Create or synchronize SCOT Owner.
+    // STEP 2
     await ensureDefaultOwner();
 
     console.log("");
-    console.log("✅ Owner account is ready.");
-
-    // STEP 3:
-    // Start Express.
-    const PORT = Number(
-      process.env.PORT || 10000
+    console.log(
+      "Owner account is ready."
     );
 
+    // STEP 3
     app.listen(
       PORT,
       "0.0.0.0",
       () => {
         console.log("");
-        console.log("======================================");
-        console.log("🚀 SCOT IT Academy API");
-        console.log(`🚀 Server running on port ${PORT}`);
-        console.log("❤️ Health: /health");
-        console.log("👨‍🎓 Students: /api/students");
-        console.log("📋 Enquiries: /api/enquiries");
-        console.log("📊 Dashboard: /api/dashboard");
-        console.log("======================================");
+        console.log(
+          "======================================"
+        );
+        console.log(
+          "SCOT IT Academy API"
+        );
+        console.log(
+          `Server running on port ${PORT}`
+        );
+        console.log(
+          "Health: /health"
+        );
+        console.log(
+          "Students: /api/students"
+        );
+        console.log(
+          "Enquiries: /api/enquiries"
+        );
+        console.log(
+          "Types: /api/types"
+        );
+        console.log(
+          "Categories: /api/categories"
+        );
+        console.log(
+          "Referrals: /api/referrals"
+        );
+        console.log(
+          "Dashboard: /api/dashboard"
+        );
+        console.log(
+          "======================================"
+        );
         console.log("");
       }
     );
-
   } catch (error) {
     console.error("");
-    console.error("❌ SERVER STARTUP FAILED");
-    console.error("======================================");
+    console.error(
+      "SERVER STARTUP FAILED"
+    );
+    console.error(
+      "======================================"
+    );
     console.error(error);
-    console.error("======================================");
+    console.error(
+      "======================================"
+    );
 
     process.exit(1);
   }
@@ -4213,7 +4214,6 @@ async function shutdown(signal) {
     );
 
     process.exit(0);
-
   } catch (error) {
     console.error(
       "Error while closing database:",

@@ -8,32 +8,18 @@ import dummyData from "../data/dummyData";
  */
 
 const useDummyData =
-  String(
-    process.env.REACT_APP_USE_BACKEND || ""
-  ).trim() !== "true";
+  String(process.env.REACT_APP_USE_BACKEND || "").trim() !== "true";
 
-const clone = (value) =>
-  JSON.parse(JSON.stringify(value));
+const clone = (value) => JSON.parse(JSON.stringify(value));
 
 const nextId = (rows = []) =>
-  Math.max(
-    ...rows.map(
-      (row) => Number(row.id) || 0
-    ),
-    0
-  ) + 1;
+  Math.max(...rows.map((row) => Number(row.id) || 0), 0) + 1;
 
-const dummyStorageKey =
-  "scot_it_dummy_data";
+const dummyStorageKey = "scot_it_dummy_data";
 
-const USERS_KEY =
-  "scot_it_users";
-
-const CURRENT_USER_KEY =
-  "scot_it_current_user";
-
-const ACCESS_TOKEN_KEY =
-  "access_token";
+const USERS_KEY = "scot_it_users";
+const CURRENT_USER_KEY = "scot_it_current_user";
+const ACCESS_TOKEN_KEY = "access_token";
 
 const OWNER_DEFAULT = {
   id: "owner",
@@ -45,50 +31,49 @@ const OWNER_DEFAULT = {
 
 /*
  * ======================================================
+ * DEFAULT TYPES
+ * ======================================================
+ */
+
+const DEFAULT_TYPES = [
+  "Students",
+  "Freshers",
+  "Experience in Non IT",
+  "Experience in IT",
+  "Career Gap",
+  "Others",
+];
+
+/*
+ * ======================================================
  * USERS
  * ======================================================
  */
 
 const getStoredUsers = () => {
   try {
-    const existing =
-      JSON.parse(
-        localStorage.getItem(
-          USERS_KEY
-        ) || "[]"
-      );
+    const existing = JSON.parse(
+      localStorage.getItem(USERS_KEY) || "[]"
+    );
 
-    return Array.isArray(existing)
-      ? existing
-      : [];
+    return Array.isArray(existing) ? existing : [];
   } catch {
     return [];
   }
 };
 
-const saveStoredUsers = (
-  users
-) => {
-  localStorage.setItem(
-    USERS_KEY,
-    JSON.stringify(users)
-  );
+const saveStoredUsers = (users) => {
+  localStorage.setItem(USERS_KEY, JSON.stringify(users));
 };
 
 export function ensureOwnerAccount() {
-  const users =
-    getStoredUsers();
+  const users = getStoredUsers();
 
-  const existing =
-    users.find(
-      (user) =>
-        String(
-          user.username || ""
-        ).toLowerCase() ===
-        String(
-          OWNER_DEFAULT.username
-        ).toLowerCase()
-    );
+  const existing = users.find(
+    (user) =>
+      String(user.username || "").toLowerCase() ===
+      String(OWNER_DEFAULT.username).toLowerCase()
+  );
 
   if (!existing) {
     users.push({
@@ -109,14 +94,9 @@ export function ensureOwnerAccount() {
 
 export function getCurrentUser() {
   try {
-    const raw =
-      localStorage.getItem(
-        CURRENT_USER_KEY
-      );
+    const raw = localStorage.getItem(CURRENT_USER_KEY);
 
-    return raw
-      ? JSON.parse(raw)
-      : null;
+    return raw ? JSON.parse(raw) : null;
   } catch {
     return null;
   }
@@ -124,13 +104,9 @@ export function getCurrentUser() {
 
 export function getAccessToken() {
   try {
-    const token =
-      localStorage.getItem(
-        ACCESS_TOKEN_KEY
-      );
+    const token = localStorage.getItem(ACCESS_TOKEN_KEY);
 
-    return token &&
-      String(token).trim()
+    return token && String(token).trim()
       ? String(token).trim()
       : null;
   } catch {
@@ -138,13 +114,9 @@ export function getAccessToken() {
   }
 }
 
-export function setCurrentUser(
-  user
-) {
+export function setCurrentUser(user) {
   if (!user) {
-    localStorage.removeItem(
-      CURRENT_USER_KEY
-    );
+    localStorage.removeItem(CURRENT_USER_KEY);
     return;
   }
 
@@ -154,13 +126,9 @@ export function setCurrentUser(
   );
 }
 
-export function setAuthSession(
-  token,
-  user
-) {
+export function setAuthSession(token, user) {
   const sanitizedToken =
-    token &&
-    String(token).trim()
+    token && String(token).trim()
       ? String(token).trim()
       : null;
 
@@ -177,13 +145,8 @@ export function setAuthSession(
 }
 
 export function clearCurrentUser() {
-  localStorage.removeItem(
-    CURRENT_USER_KEY
-  );
-
-  localStorage.removeItem(
-    ACCESS_TOKEN_KEY
-  );
+  localStorage.removeItem(CURRENT_USER_KEY);
+  localStorage.removeItem(ACCESS_TOKEN_KEY);
 }
 
 /*
@@ -192,9 +155,7 @@ export function clearCurrentUser() {
  * ======================================================
  */
 
-function getResponseToken(
-  data
-) {
+function getResponseToken(data) {
   return (
     data?.access ||
     data?.access_token ||
@@ -210,9 +171,7 @@ function getResponseToken(
  * ======================================================
  */
 
-export function resetWorkspaceForNewAdmin(
-  username
-) {
+export function resetWorkspaceForNewAdmin(username) {
   const keys = [
     "scot_it_students",
     "scot_it_enquiries",
@@ -221,11 +180,10 @@ export function resetWorkspaceForNewAdmin(
     "scot_it_dummy_data",
     "scot_it_notifications",
     "scot_it_admins",
+    "scot_it_types",
   ];
 
-  keys.forEach((key) =>
-    localStorage.removeItem(key)
-  );
+  keys.forEach((key) => localStorage.removeItem(key));
 
   localStorage.setItem(
     "scot_it_active_workspace",
@@ -239,28 +197,16 @@ export function resetWorkspaceForNewAdmin(
  * ======================================================
  */
 
-export function createAdminAccount(
-  input = {}
-) {
-  const users =
-    ensureOwnerAccount();
+export function createAdminAccount(input = {}) {
+  const users = ensureOwnerAccount();
 
-  const username =
-    String(
-      input.username || ""
-    ).trim();
+  const username = String(input.username || "").trim();
 
-  const password =
-    String(
-      input.password || ""
-    ).trim();
+  const password = String(input.password || "").trim();
 
-  const name =
-    String(
-      input.name ||
-        username ||
-        "Admin"
-    ).trim();
+  const name = String(
+    input.name || username || "Admin"
+  ).trim();
 
   if (!username || !password) {
     throw new Error(
@@ -268,14 +214,11 @@ export function createAdminAccount(
     );
   }
 
-  const duplicate =
-    users.find(
-      (user) =>
-        String(
-          user.username || ""
-        ).toLowerCase() ===
-        username.toLowerCase()
-    );
+  const duplicate = users.find(
+    (user) =>
+      String(user.username || "").toLowerCase() ===
+      username.toLowerCase()
+  );
 
   if (duplicate) {
     throw new Error(
@@ -305,27 +248,20 @@ export function createAdminAccount(
  */
 
 try {
-  const saved =
-    JSON.parse(
-      localStorage.getItem(
-        dummyStorageKey
-      ) || "{}"
-    );
-
-  Object.assign(
-    dummyData,
-    saved
+  const saved = JSON.parse(
+    localStorage.getItem(dummyStorageKey) || "{}"
   );
+
+  Object.assign(dummyData, saved);
 } catch {
   // Ignore invalid localStorage
 }
 
-const persistDummyData =
-  () =>
-    localStorage.setItem(
-      dummyStorageKey,
-      JSON.stringify(dummyData)
-    );
+const persistDummyData = () =>
+  localStorage.setItem(
+    dummyStorageKey,
+    JSON.stringify(dummyData)
+  );
 
 /*
  * ======================================================
@@ -349,12 +285,10 @@ const api = axios.create({
 
 api.interceptors.request.use(
   (config) => {
-    const token =
-      getAccessToken();
+    const token = getAccessToken();
 
     if (token) {
-      config.headers =
-        config.headers || {};
+      config.headers = config.headers || {};
 
       config.headers.Authorization =
         `Bearer ${token}`;
@@ -362,9 +296,7 @@ api.interceptors.request.use(
 
     return config;
   },
-
-  (error) =>
-    Promise.reject(error)
+  (error) => Promise.reject(error)
 );
 
 /*
@@ -377,8 +309,7 @@ api.interceptors.response.use(
   (response) => response,
 
   (error) => {
-    const status =
-      error?.response?.status;
+    const status = error?.response?.status;
 
     const requestUrl =
       error?.config?.url || "";
@@ -394,8 +325,11 @@ api.interceptors.response.use(
       );
 
     /*
-     * Do not automatically logout for
-     * owner/password update errors.
+     * Only logout automatically for
+     * authentication failures.
+     *
+     * IMPORTANT:
+     * 404 should NOT logout the user.
      */
 
     if (
@@ -406,19 +340,14 @@ api.interceptors.response.use(
       clearCurrentUser();
 
       if (
-        typeof window !==
-          "undefined" &&
-        window.location.pathname !==
-          "/login"
+        typeof window !== "undefined" &&
+        window.location.pathname !== "/login"
       ) {
-        window.location.href =
-          "/login";
+        window.location.href = "/login";
       }
     }
 
-    return Promise.reject(
-      error
-    );
+    return Promise.reject(error);
   }
 );
 
@@ -430,15 +359,13 @@ api.interceptors.response.use(
 
 export const authApi = {
   login: async (data = {}) => {
-    const username =
-      String(
-        data?.username || ""
-      ).trim();
+    const username = String(
+      data?.username || ""
+    ).trim();
 
-    const password =
-      String(
-        data?.password || ""
-      );
+    const password = String(
+      data?.password || ""
+    );
 
     if (!username || !password) {
       throw new Error(
@@ -447,22 +374,19 @@ export const authApi = {
     }
 
     if (!useDummyData) {
-      const response =
-        await api.post(
-          "/auth/login",
-          {
-            username,
-            password,
-          }
-        );
+      const response = await api.post(
+        "/auth/login",
+        {
+          username,
+          password,
+        }
+      );
 
       const user =
         response.data?.user || null;
 
       const token =
-        getResponseToken(
-          response.data
-        );
+        getResponseToken(response.data);
 
       if (!user) {
         throw new Error(
@@ -476,15 +400,11 @@ export const authApi = {
         );
       }
 
-      setAuthSession(
-        token,
-        user
-      );
+      setAuthSession(token, user);
 
       if (
-        String(
-          user.role || ""
-        ).toLowerCase() === "admin"
+        String(user.role || "").toLowerCase() ===
+        "admin"
       ) {
         resetWorkspaceForNewAdmin(
           user.username
@@ -494,23 +414,23 @@ export const authApi = {
       return response;
     }
 
-    // Dummy mode
+    /*
+     * Dummy mode
+     */
+
     ensureOwnerAccount();
 
-    const users =
-      getStoredUsers();
+    const users = getStoredUsers();
 
-    const matchedUser =
-      users.find(
-        (user) =>
-          String(
-            user.username || ""
-          ).toLowerCase() ===
-            username.toLowerCase() &&
-          String(
-            user.password || ""
-          ) === password
-      );
+    const matchedUser = users.find(
+      (user) =>
+        String(
+          user.username || ""
+        ).toLowerCase() ===
+          username.toLowerCase() &&
+        String(user.password || "") ===
+          password
+    );
 
     if (matchedUser) {
       const payloadUser = {
@@ -537,11 +457,8 @@ export const authApi = {
 
       return {
         data: {
-          access:
-            "demo-token",
-
-          user:
-            payloadUser,
+          access: "demo-token",
+          user: payloadUser,
         },
       };
     }
@@ -553,19 +470,16 @@ export const authApi = {
 
   signup: async (data = {}) => {
     if (!useDummyData) {
-      const response =
-        await api.post(
-          "/auth/signup",
-          data
-        );
+      const response = await api.post(
+        "/auth/signup",
+        data
+      );
 
       const user =
         response.data?.user || null;
 
       const token =
-        getResponseToken(
-          response.data
-        );
+        getResponseToken(response.data);
 
       if (!user) {
         throw new Error(
@@ -590,18 +504,14 @@ export const authApi = {
     );
   },
 
-  updateOwner: async (
-    data = {}
-  ) => {
-    const username =
-      String(
-        data?.username || ""
-      ).trim();
+  updateOwner: async (data = {}) => {
+    const username = String(
+      data?.username || ""
+    ).trim();
 
-    const currentPassword =
-      String(
-        data?.current_password || ""
-      );
+    const currentPassword = String(
+      data?.current_password || ""
+    );
 
     if (!username) {
       throw new Error(
@@ -621,29 +531,25 @@ export const authApi = {
       );
     }
 
-    const response =
-      await api.put(
-        "/auth/update-owner",
-        {
-          username,
-          current_password:
-            currentPassword,
-        }
-      );
+    const response = await api.put(
+      "/auth/update-owner",
+      {
+        username,
+        current_password:
+          currentPassword,
+      },
+    );
 
     const user =
       response.data?.user || null;
 
     const newToken =
-      getResponseToken(
-        response.data
-      );
+      getResponseToken(response.data);
 
     if (newToken) {
       setAuthSession(
         newToken,
-        user ||
-          getCurrentUser()
+        user || getCurrentUser()
       );
     } else if (user) {
       setCurrentUser(user);
@@ -652,18 +558,14 @@ export const authApi = {
     return response;
   },
 
-  updatePassword: async (
-    data = {}
-  ) => {
-    const currentPassword =
-      String(
-        data?.current_password || ""
-      );
+  updatePassword: async (data = {}) => {
+    const currentPassword = String(
+      data?.current_password || ""
+    );
 
-    const newPassword =
-      String(
-        data?.new_password || ""
-      );
+    const newPassword = String(
+      data?.new_password || ""
+    );
 
     if (!currentPassword) {
       throw new Error(
@@ -677,9 +579,7 @@ export const authApi = {
       );
     }
 
-    if (
-      newPassword.length < 6
-    ) {
+    if (newPassword.length < 6) {
       throw new Error(
         "New password must contain at least 6 characters."
       );
@@ -691,31 +591,27 @@ export const authApi = {
       );
     }
 
-    const response =
-      await api.put(
-        "/auth/update-password",
-        {
-          current_password:
-            currentPassword,
+    const response = await api.put(
+      "/auth/update-password",
+      {
+        current_password:
+          currentPassword,
 
-          new_password:
-            newPassword,
-        }
-      );
+        new_password:
+          newPassword,
+      }
+    );
 
     const user =
       response.data?.user || null;
 
     const newToken =
-      getResponseToken(
-        response.data
-      );
+      getResponseToken(response.data);
 
     if (newToken) {
       setAuthSession(
         newToken,
-        user ||
-          getCurrentUser()
+        user || getCurrentUser()
       );
     } else if (user) {
       setCurrentUser(user);
@@ -725,9 +621,7 @@ export const authApi = {
   },
 
   me: () =>
-    api.get(
-      "/auth/me"
-    ),
+    api.get("/auth/me"),
 };
 
 /*
@@ -737,56 +631,36 @@ export const authApi = {
  */
 
 export const dashboardApi = {
-
   summary: () => {
-
     if (!useDummyData) {
-
-      return api.get(
-        "/dashboard/"
-      );
+      return api.get("/dashboard/");
     }
 
     return Promise.resolve({
       data: {
+        recent: clone(
+          dummyData.enquiries
+        ).map((row) => [
+          row.admin,
+          row.candidate_name,
+          row.mobile,
+          row.city,
+          row.category,
+          row.course,
+          row.next_followup_date,
+          row.status,
+        ]),
 
-        recent:
-          clone(
-            dummyData.enquiries
-          ).map((row) => [
-
-            row.admin,
-
-            row.candidate_name,
-
-            row.mobile,
-
-            row.city,
-
-            row.category,
-
-            row.course,
-
-            row.next_followup_date,
-
-            row.status,
-          ]),
-
-        follow:
-          clone(
-            dummyData.enquiries
-          ).map((row) => ({
-
-            ...row,
-
-            name:
-              row.candidate_name,
-          })),
+        follow: clone(
+          dummyData.enquiries
+        ).map((row) => ({
+          ...row,
+          name: row.candidate_name,
+        })),
 
         categories:
           dummyData.categories.map(
             (category) => [
-
               category,
 
               dummyData.enquiries.filter(
@@ -805,25 +679,20 @@ export const dashboardApi = {
   },
 
   notifications: () => {
-
     if (!useDummyData) {
-
       return api.get(
         "/notifications/"
       );
     }
 
     return Promise.resolve({
-      data:
-        clone(
-          dummyData.notifications
-        ).map((row) => ({
-
-          ...row,
-
-          name:
-            row.student_name,
-        })),
+      data: clone(
+        dummyData.notifications
+      ).map((row) => ({
+        ...row,
+        name:
+          row.student_name,
+      })),
     });
   },
 };
@@ -835,7 +704,6 @@ export const dashboardApi = {
  */
 
 export const enquiryApi = {
-
   list: (params) =>
     useDummyData
       ? Promise.resolve({
@@ -849,7 +717,6 @@ export const enquiryApi = {
         ),
 
   create: (data) => {
-
     if (!useDummyData) {
       return api.post(
         "/enquiries/",
@@ -864,9 +731,7 @@ export const enquiryApi = {
       ),
     };
 
-    dummyData.enquiries.push(
-      row
-    );
+    dummyData.enquiries.push(row);
 
     persistDummyData();
 
@@ -876,7 +741,6 @@ export const enquiryApi = {
   },
 
   detail: (id) => {
-
     if (!useDummyData) {
       return api.get(
         `/enquiries/${id}/`
@@ -894,11 +758,7 @@ export const enquiryApi = {
     });
   },
 
-  update: (
-    id,
-    data
-  ) => {
-
+  update: (id, data) => {
     if (!useDummyData) {
       return api.patch(
         `/enquiries/${id}/`,
@@ -930,7 +790,6 @@ export const enquiryApi = {
   },
 
   remove: (id) => {
-
     if (!useDummyData) {
       return api.delete(
         `/enquiries/${id}/`
@@ -961,9 +820,7 @@ export const enquiryApi = {
  */
 
 export const studentApi = {
-
   list: (params) => {
-
     if (!useDummyData) {
       return api.get(
         "/students/",
@@ -979,7 +836,6 @@ export const studentApi = {
   },
 
   detail: (id) => {
-
     if (!useDummyData) {
       return api.get(
         `/students/${id}/`
@@ -1001,9 +857,7 @@ export const studentApi = {
   },
 
   create: async (data) => {
-
     if (!useDummyData) {
-
       const payload = {
         ...data,
 
@@ -1026,9 +880,9 @@ export const studentApi = {
           (Number(
             data?.paidFee
           ) || 0) +
-          (Number(
-            data?.balanceFee
-          ) || 0),
+            (Number(
+              data?.balanceFee
+            ) || 0),
       };
 
       return api.post(
@@ -1038,21 +892,14 @@ export const studentApi = {
     }
 
     const paidFee =
-      Number(
-        data?.paidFee
-      ) || 0;
+      Number(data?.paidFee) || 0;
 
     const balanceFee =
-      Number(
-        data?.balanceFee
-      ) || 0;
+      Number(data?.balanceFee) || 0;
 
     const totalFee =
-      Number(
-        data?.totalFee
-      ) ||
-      paidFee +
-      balanceFee;
+      Number(data?.totalFee) ||
+      paidFee + balanceFee;
 
     const student = {
       ...data,
@@ -1112,9 +959,7 @@ export const studentApi = {
     persistDummyData();
 
     return Promise.resolve({
-      data: clone(
-        student
-      ),
+      data: clone(student),
     });
   },
 
@@ -1122,9 +967,7 @@ export const studentApi = {
     id,
     data
   ) => {
-
     if (!useDummyData) {
-
       const payload = {
         ...data,
 
@@ -1147,9 +990,9 @@ export const studentApi = {
           (Number(
             data?.paidFee
           ) || 0) +
-          (Number(
-            data?.balanceFee
-          ) || 0),
+            (Number(
+              data?.balanceFee
+            ) || 0),
       };
 
       return api.patch(
@@ -1174,26 +1017,17 @@ export const studentApi = {
     }
 
     const oldStudent =
-      dummyData.students[
-        index
-      ];
+      dummyData.students[index];
 
     const paidFee =
-      Number(
-        data?.paidFee
-      ) || 0;
+      Number(data?.paidFee) || 0;
 
     const balanceFee =
-      Number(
-        data?.balanceFee
-      ) || 0;
+      Number(data?.balanceFee) || 0;
 
     const totalFee =
-      Number(
-        data?.totalFee
-      ) ||
-      paidFee +
-      balanceFee;
+      Number(data?.totalFee) ||
+      paidFee + balanceFee;
 
     const updatedStudent = {
       ...oldStudent,
@@ -1210,40 +1044,34 @@ export const studentApi = {
       totalFee,
     };
 
-    dummyData.students[
-      index
-    ] = updatedStudent;
+    dummyData.students[index] =
+      updatedStudent;
 
     const enquiryIndex =
       dummyData.enquiries.findIndex(
         (row) =>
           String(
-            row.candidate_name ||
-              ""
-          ).trim()
+            row.candidate_name || ""
+          )
+            .trim()
             .toLowerCase() ===
             String(
-              oldStudent.name ||
-                ""
-            ).trim()
+              oldStudent.name || ""
+            )
+              .trim()
               .toLowerCase() &&
           String(
             row.mobile || ""
           ) ===
             String(
-              oldStudent.mobile ||
-                ""
+              oldStudent.mobile || ""
             )
       );
 
-    if (
-      enquiryIndex >= 0
-    ) {
-
+    if (enquiryIndex >= 0) {
       dummyData.enquiries[
         enquiryIndex
       ] = {
-
         ...dummyData.enquiries[
           enquiryIndex
         ],
@@ -1282,7 +1110,6 @@ export const studentApi = {
   },
 
   delete: (id) => {
-
     if (!useDummyData) {
       return api.delete(
         `/students/${id}/`
@@ -1304,27 +1131,25 @@ export const studentApi = {
       );
 
     if (student) {
-
       dummyData.enquiries =
         dummyData.enquiries.filter(
           (row) =>
             !(
               String(
-                row.candidate_name ||
-                  ""
-              ).trim()
+                row.candidate_name || ""
+              )
+                .trim()
                 .toLowerCase() ===
                 String(
-                  student.name ||
-                    ""
-                ).trim()
+                  student.name || ""
+                )
+                  .trim()
                   .toLowerCase() &&
               String(
                 row.mobile || ""
               ) ===
                 String(
-                  student.mobile ||
-                    ""
+                  student.mobile || ""
                 )
             )
         );
@@ -1350,9 +1175,7 @@ const localEnquiryKey =
   "scot_it_enquiries";
 
 export function getLocalEnquiries() {
-
   try {
-
     const rows =
       JSON.parse(
         localStorage.getItem(
@@ -1377,18 +1200,14 @@ export function getLocalEnquiries() {
             }
           : row
     );
-
   } catch {
-
     return [];
-
   }
 }
 
 export function saveLocalEnquiry(
   enquiry
 ) {
-
   const rows =
     getLocalEnquiries();
 
@@ -1419,7 +1238,6 @@ export function saveLocalEnquiry(
 export function removeLocalEnquiry(
   id
 ) {
-
   const rows =
     getLocalEnquiries().filter(
       (row) =>
@@ -1440,35 +1258,24 @@ export function removeLocalEnquiry(
  */
 
 export function getLocalCategories() {
-
   try {
-
     return JSON.parse(
       localStorage.getItem(
         "scot_it_categories"
       ) || "[]"
     );
-
   } catch {
-
     return [];
-
   }
 }
 
 export function saveLocalCategory(
   name
 ) {
-
   const categories =
     getLocalCategories();
 
-  if (
-    !categories.includes(
-      name
-    )
-  ) {
-
+  if (!categories.includes(name)) {
     localStorage.setItem(
       "scot_it_categories",
       JSON.stringify([
@@ -1483,7 +1290,6 @@ export function renameLocalCategory(
   previous,
   next
 ) {
-
   const categories =
     getLocalCategories().map(
       (name) =>
@@ -1503,7 +1309,6 @@ export function renameLocalCategory(
 export function removeLocalCategory(
   name
 ) {
-
   localStorage.setItem(
     "scot_it_categories",
     JSON.stringify(
@@ -1516,9 +1321,7 @@ export function removeLocalCategory(
 }
 
 export const categoryApi = {
-
   list: () => {
-
     if (!useDummyData) {
       return api.get(
         "/categories/"
@@ -1536,7 +1339,6 @@ export const categoryApi = {
   },
 
   create: (data) => {
-
     if (!useDummyData) {
       return api.post(
         "/categories/",
@@ -1549,7 +1351,6 @@ export const categoryApi = {
         data.name
       )
     ) {
-
       dummyData.categories.push(
         data.name
       );
@@ -1569,7 +1370,6 @@ export const categoryApi = {
     id,
     data
   ) => {
-
     if (!useDummyData) {
       return api.patch(
         `/categories/${id}/`,
@@ -1584,10 +1384,8 @@ export const categoryApi = {
       );
 
     if (index >= 0) {
-
-      dummyData.categories[
-        index
-      ] = data.name;
+      dummyData.categories[index] =
+        data.name;
     }
 
     persistDummyData();
@@ -1601,7 +1399,6 @@ export const categoryApi = {
   },
 
   remove: (id) => {
-
     if (!useDummyData) {
       return api.delete(
         `/categories/${id}/`
@@ -1626,12 +1423,302 @@ export const categoryApi = {
 
 /*
  * ======================================================
+ * TYPE API
+ * ======================================================
+ *
+ * BACKEND:
+ *
+ * GET    /api/types
+ * POST   /api/types
+ * PATCH  /api/types/:id
+ * DELETE /api/types/:id
+ *
+ * Axios baseURL:
+ *
+ * https://scot-it-academy-1.onrender.com/api
+ *
+ * Therefore:
+ *
+ * api.get("/types")
+ *
+ * becomes:
+ *
+ * https://scot-it-academy-1.onrender.com/api/types
+ *
+ * ======================================================
+ */
+
+const getLocalTypes = () => {
+  try {
+    const saved = JSON.parse(
+      localStorage.getItem(
+        "scot_it_types"
+      ) || "null"
+    );
+
+    if (
+      Array.isArray(saved) &&
+      saved.length > 0
+    ) {
+      return saved;
+    }
+
+    const initialTypes =
+      DEFAULT_TYPES.map(
+        (name, index) => ({
+          id: index + 1,
+          name,
+        })
+      );
+
+    localStorage.setItem(
+      "scot_it_types",
+      JSON.stringify(
+        initialTypes
+      )
+    );
+
+    return initialTypes;
+  } catch {
+    return DEFAULT_TYPES.map(
+      (name, index) => ({
+        id: index + 1,
+        name,
+      })
+    );
+  }
+};
+
+const saveLocalTypes = (
+  types
+) => {
+  localStorage.setItem(
+    "scot_it_types",
+    JSON.stringify(types)
+  );
+};
+
+export const typeApi = {
+  /*
+   * ==========================================
+   * GET ALL TYPES
+   * ==========================================
+   */
+
+  list: async () => {
+    if (!useDummyData) {
+      const response =
+        await api.get("/types");
+
+      const data =
+        Array.isArray(
+          response.data
+        )
+          ? response.data
+          : Array.isArray(
+              response.data?.results
+            )
+          ? response.data.results
+          : [];
+
+      return {
+        ...response,
+        data,
+      };
+    }
+
+    return Promise.resolve({
+      data: clone(
+        getLocalTypes()
+      ),
+    });
+  },
+
+  /*
+   * ==========================================
+   * CREATE TYPE
+   * ==========================================
+   */
+
+  create: async (
+    data = {}
+  ) => {
+    const name = String(
+      data?.name ||
+        data?.type ||
+        data?.title ||
+        ""
+    ).trim();
+
+    if (!name) {
+      throw new Error(
+        "Type name is required."
+      );
+    }
+
+    if (!useDummyData) {
+      return api.post(
+        "/types",
+        {
+          name,
+        }
+      );
+    }
+
+    const types =
+      getLocalTypes();
+
+    const exists =
+      types.some(
+        (item) =>
+          String(
+            item.name || ""
+          )
+            .trim()
+            .toLowerCase() ===
+          name.toLowerCase()
+      );
+
+    if (exists) {
+      throw new Error(
+        "This type already exists."
+      );
+    }
+
+    const newType = {
+      id: nextId(types),
+      name,
+    };
+
+    types.push(newType);
+
+    saveLocalTypes(types);
+
+    return Promise.resolve({
+      data: clone(newType),
+    });
+  },
+
+  /*
+   * ==========================================
+   * UPDATE TYPE
+   * ==========================================
+   */
+
+  update: async (
+    id,
+    data = {}
+  ) => {
+    const name = String(
+      data?.name ||
+        data?.type ||
+        data?.title ||
+        ""
+    ).trim();
+
+    if (!name) {
+      throw new Error(
+        "Type name is required."
+      );
+    }
+
+    if (!useDummyData) {
+      return api.patch(
+        `/types/${id}`,
+        {
+          name,
+        }
+      );
+    }
+
+    const types =
+      getLocalTypes();
+
+    const index =
+      types.findIndex(
+        (item) =>
+          String(item.id) ===
+          String(id)
+      );
+
+    if (index === -1) {
+      throw new Error(
+        "Type not found."
+      );
+    }
+
+    const duplicate =
+      types.some(
+        (item, itemIndex) =>
+          itemIndex !== index &&
+          String(
+            item.name || ""
+          )
+            .trim()
+            .toLowerCase() ===
+          name.toLowerCase()
+      );
+
+    if (duplicate) {
+      throw new Error(
+        "This type already exists."
+      );
+    }
+
+    types[index] = {
+      ...types[index],
+      name,
+    };
+
+    saveLocalTypes(types);
+
+    return Promise.resolve({
+      data: clone(
+        types[index]
+      ),
+    });
+  },
+
+  /*
+   * ==========================================
+   * DELETE TYPE
+   * ==========================================
+   */
+
+  remove: async (id) => {
+    if (!useDummyData) {
+      return api.delete(
+        `/types/${id}`
+      );
+    }
+
+    const types =
+      getLocalTypes();
+
+    const updated =
+      types.filter(
+        (item) =>
+          String(item.id) !==
+          String(id)
+      );
+
+    saveLocalTypes(updated);
+
+    return Promise.resolve({
+      data: {
+        deleted: true,
+      },
+    });
+  },
+};
+
+/*
+ * ======================================================
  * FOLLOW UP API
  * ======================================================
  */
 
 export const followUpApi = {
-
   list: (params) =>
     useDummyData
       ? Promise.resolve({
@@ -1652,7 +1739,6 @@ export const followUpApi = {
  */
 
 export const reportApi = {
-
   summary: (params) =>
     api.get(
       "/reports/",
@@ -1667,9 +1753,7 @@ export const reportApi = {
  */
 
 export const adminApi = {
-
   list: () => {
-
     if (!useDummyData) {
       return api.get(
         "/admins/"
@@ -1718,7 +1802,6 @@ export const adminApi = {
   },
 
   create: (data) => {
-
     if (!useDummyData) {
       return api.post(
         "/admins/",
@@ -1803,7 +1886,6 @@ export const adminApi = {
     id,
     data
   ) => {
-
     if (!useDummyData) {
       return api.patch(
         `/admins/${id}/`,
@@ -1883,7 +1965,6 @@ export const adminApi = {
   },
 
   remove: (id) => {
-
     if (!useDummyData) {
       return api.delete(
         `/admins/${id}/`
@@ -1939,13 +2020,9 @@ export const adminApi = {
  */
 
 export const referralApi = {
-
   list: () => {
-
     if (useDummyData) {
-
       try {
-
         const rows =
           JSON.parse(
             localStorage.getItem(
@@ -1956,13 +2033,10 @@ export const referralApi = {
         return Promise.resolve({
           data: clone(rows),
         });
-
       } catch {
-
         return Promise.resolve({
           data: [],
         });
-
       }
     }
 
@@ -1972,9 +2046,7 @@ export const referralApi = {
   },
 
   create: (data) => {
-
     if (useDummyData) {
-
       const rows =
         JSON.parse(
           localStorage.getItem(
@@ -2010,9 +2082,7 @@ export const referralApi = {
     id,
     data
   ) => {
-
     if (useDummyData) {
-
       const rows =
         JSON.parse(
           localStorage.getItem(
@@ -2028,7 +2098,6 @@ export const referralApi = {
         );
 
       if (index >= 0) {
-
         rows[index] = {
           ...rows[index],
           ...data,
@@ -2071,9 +2140,7 @@ export const referralApi = {
   },
 
   remove: (id) => {
-
     if (useDummyData) {
-
       const rows =
         JSON.parse(
           localStorage.getItem(
@@ -2113,7 +2180,6 @@ export const referralApi = {
  */
 
 export const settingsApi = {
-
   get: () =>
     api.get(
       "/settings/"
