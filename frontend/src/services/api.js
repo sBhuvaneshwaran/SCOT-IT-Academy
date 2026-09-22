@@ -8,18 +8,32 @@ import dummyData from "../data/dummyData";
  */
 
 const useDummyData =
-  String(process.env.REACT_APP_USE_BACKEND || "").trim() !== "true";
+  String(
+    process.env.REACT_APP_USE_BACKEND || ""
+  ).trim() !== "true";
 
-const clone = (value) => JSON.parse(JSON.stringify(value));
+const clone = (value) =>
+  JSON.parse(JSON.stringify(value));
 
 const nextId = (rows = []) =>
-  Math.max(...rows.map((row) => Number(row.id) || 0), 0) + 1;
+  Math.max(
+    ...rows.map(
+      (row) => Number(row.id) || 0
+    ),
+    0
+  ) + 1;
 
-const dummyStorageKey = "scot_it_dummy_data";
+const dummyStorageKey =
+  "scot_it_dummy_data";
 
-const USERS_KEY = "scot_it_users";
-const CURRENT_USER_KEY = "scot_it_current_user";
-const ACCESS_TOKEN_KEY = "access_token";
+const USERS_KEY =
+  "scot_it_users";
+
+const CURRENT_USER_KEY =
+  "scot_it_current_user";
+
+const ACCESS_TOKEN_KEY =
+  "access_token";
 
 const OWNER_DEFAULT = {
   id: "owner",
@@ -33,6 +47,11 @@ const OWNER_DEFAULT = {
  * ======================================================
  * DEFAULT TYPES
  * ======================================================
+ *
+ * These are used only in Dummy Mode.
+ *
+ * Backend Mode:
+ * The Type Management page/database is the source.
  */
 
 const DEFAULT_TYPES = [
@@ -52,28 +71,44 @@ const DEFAULT_TYPES = [
 
 const getStoredUsers = () => {
   try {
-    const existing = JSON.parse(
-      localStorage.getItem(USERS_KEY) || "[]"
-    );
+    const existing =
+      JSON.parse(
+        localStorage.getItem(
+          USERS_KEY
+        ) || "[]"
+      );
 
-    return Array.isArray(existing) ? existing : [];
+    return Array.isArray(existing)
+      ? existing
+      : [];
   } catch {
     return [];
   }
 };
 
-const saveStoredUsers = (users) => {
-  localStorage.setItem(USERS_KEY, JSON.stringify(users));
+const saveStoredUsers = (
+  users
+) => {
+  localStorage.setItem(
+    USERS_KEY,
+    JSON.stringify(users)
+  );
 };
 
 export function ensureOwnerAccount() {
-  const users = getStoredUsers();
+  const users =
+    getStoredUsers();
 
-  const existing = users.find(
-    (user) =>
-      String(user.username || "").toLowerCase() ===
-      String(OWNER_DEFAULT.username).toLowerCase()
-  );
+  const existing =
+    users.find(
+      (user) =>
+        String(
+          user.username || ""
+        ).toLowerCase() ===
+        String(
+          OWNER_DEFAULT.username
+        ).toLowerCase()
+    );
 
   if (!existing) {
     users.push({
@@ -94,9 +129,14 @@ export function ensureOwnerAccount() {
 
 export function getCurrentUser() {
   try {
-    const raw = localStorage.getItem(CURRENT_USER_KEY);
+    const raw =
+      localStorage.getItem(
+        CURRENT_USER_KEY
+      );
 
-    return raw ? JSON.parse(raw) : null;
+    return raw
+      ? JSON.parse(raw)
+      : null;
   } catch {
     return null;
   }
@@ -104,9 +144,13 @@ export function getCurrentUser() {
 
 export function getAccessToken() {
   try {
-    const token = localStorage.getItem(ACCESS_TOKEN_KEY);
+    const token =
+      localStorage.getItem(
+        ACCESS_TOKEN_KEY
+      );
 
-    return token && String(token).trim()
+    return token &&
+      String(token).trim()
       ? String(token).trim()
       : null;
   } catch {
@@ -114,9 +158,13 @@ export function getAccessToken() {
   }
 }
 
-export function setCurrentUser(user) {
+export function setCurrentUser(
+  user
+) {
   if (!user) {
-    localStorage.removeItem(CURRENT_USER_KEY);
+    localStorage.removeItem(
+      CURRENT_USER_KEY
+    );
     return;
   }
 
@@ -126,9 +174,13 @@ export function setCurrentUser(user) {
   );
 }
 
-export function setAuthSession(token, user) {
+export function setAuthSession(
+  token,
+  user
+) {
   const sanitizedToken =
-    token && String(token).trim()
+    token &&
+    String(token).trim()
       ? String(token).trim()
       : null;
 
@@ -145,8 +197,13 @@ export function setAuthSession(token, user) {
 }
 
 export function clearCurrentUser() {
-  localStorage.removeItem(CURRENT_USER_KEY);
-  localStorage.removeItem(ACCESS_TOKEN_KEY);
+  localStorage.removeItem(
+    CURRENT_USER_KEY
+  );
+
+  localStorage.removeItem(
+    ACCESS_TOKEN_KEY
+  );
 }
 
 /*
@@ -155,7 +212,9 @@ export function clearCurrentUser() {
  * ======================================================
  */
 
-function getResponseToken(data) {
+function getResponseToken(
+  data
+) {
   return (
     data?.access ||
     data?.access_token ||
@@ -171,7 +230,9 @@ function getResponseToken(data) {
  * ======================================================
  */
 
-export function resetWorkspaceForNewAdmin(username) {
+export function resetWorkspaceForNewAdmin(
+  username
+) {
   const keys = [
     "scot_it_students",
     "scot_it_enquiries",
@@ -183,7 +244,9 @@ export function resetWorkspaceForNewAdmin(username) {
     "scot_it_types",
   ];
 
-  keys.forEach((key) => localStorage.removeItem(key));
+  keys.forEach((key) =>
+    localStorage.removeItem(key)
+  );
 
   localStorage.setItem(
     "scot_it_active_workspace",
@@ -197,16 +260,28 @@ export function resetWorkspaceForNewAdmin(username) {
  * ======================================================
  */
 
-export function createAdminAccount(input = {}) {
-  const users = ensureOwnerAccount();
+export function createAdminAccount(
+  input = {}
+) {
+  const users =
+    ensureOwnerAccount();
 
-  const username = String(input.username || "").trim();
+  const username =
+    String(
+      input.username || ""
+    ).trim();
 
-  const password = String(input.password || "").trim();
+  const password =
+    String(
+      input.password || ""
+    ).trim();
 
-  const name = String(
-    input.name || username || "Admin"
-  ).trim();
+  const name =
+    String(
+      input.name ||
+        username ||
+        "Admin"
+    ).trim();
 
   if (!username || !password) {
     throw new Error(
@@ -214,11 +289,14 @@ export function createAdminAccount(input = {}) {
     );
   }
 
-  const duplicate = users.find(
-    (user) =>
-      String(user.username || "").toLowerCase() ===
-      username.toLowerCase()
-  );
+  const duplicate =
+    users.find(
+      (user) =>
+        String(
+          user.username || ""
+        ).toLowerCase() ===
+        username.toLowerCase()
+    );
 
   if (duplicate) {
     throw new Error(
@@ -248,20 +326,27 @@ export function createAdminAccount(input = {}) {
  */
 
 try {
-  const saved = JSON.parse(
-    localStorage.getItem(dummyStorageKey) || "{}"
-  );
+  const saved =
+    JSON.parse(
+      localStorage.getItem(
+        dummyStorageKey
+      ) || "{}"
+    );
 
-  Object.assign(dummyData, saved);
+  Object.assign(
+    dummyData,
+    saved
+  );
 } catch {
   // Ignore invalid localStorage
 }
 
-const persistDummyData = () =>
-  localStorage.setItem(
-    dummyStorageKey,
-    JSON.stringify(dummyData)
-  );
+const persistDummyData =
+  () =>
+    localStorage.setItem(
+      dummyStorageKey,
+      JSON.stringify(dummyData)
+    );
 
 /*
  * ======================================================
@@ -285,10 +370,12 @@ const api = axios.create({
 
 api.interceptors.request.use(
   (config) => {
-    const token = getAccessToken();
+    const token =
+      getAccessToken();
 
     if (token) {
-      config.headers = config.headers || {};
+      config.headers =
+        config.headers || {};
 
       config.headers.Authorization =
         `Bearer ${token}`;
@@ -296,7 +383,9 @@ api.interceptors.request.use(
 
     return config;
   },
-  (error) => Promise.reject(error)
+
+  (error) =>
+    Promise.reject(error)
 );
 
 /*
@@ -309,7 +398,8 @@ api.interceptors.response.use(
   (response) => response,
 
   (error) => {
-    const status = error?.response?.status;
+    const status =
+      error?.response?.status;
 
     const requestUrl =
       error?.config?.url || "";
@@ -325,11 +415,8 @@ api.interceptors.response.use(
       );
 
     /*
-     * Only logout automatically for
-     * authentication failures.
-     *
-     * IMPORTANT:
-     * 404 should NOT logout the user.
+     * Do not automatically logout for
+     * owner/password update errors.
      */
 
     if (
@@ -340,14 +427,19 @@ api.interceptors.response.use(
       clearCurrentUser();
 
       if (
-        typeof window !== "undefined" &&
-        window.location.pathname !== "/login"
+        typeof window !==
+          "undefined" &&
+        window.location.pathname !==
+          "/login"
       ) {
-        window.location.href = "/login";
+        window.location.href =
+          "/login";
       }
     }
 
-    return Promise.reject(error);
+    return Promise.reject(
+      error
+    );
   }
 );
 
@@ -359,13 +451,15 @@ api.interceptors.response.use(
 
 export const authApi = {
   login: async (data = {}) => {
-    const username = String(
-      data?.username || ""
-    ).trim();
+    const username =
+      String(
+        data?.username || ""
+      ).trim();
 
-    const password = String(
-      data?.password || ""
-    );
+    const password =
+      String(
+        data?.password || ""
+      );
 
     if (!username || !password) {
       throw new Error(
@@ -374,19 +468,22 @@ export const authApi = {
     }
 
     if (!useDummyData) {
-      const response = await api.post(
-        "/auth/login",
-        {
-          username,
-          password,
-        }
-      );
+      const response =
+        await api.post(
+          "/auth/login",
+          {
+            username,
+            password,
+          }
+        );
 
       const user =
         response.data?.user || null;
 
       const token =
-        getResponseToken(response.data);
+        getResponseToken(
+          response.data
+        );
 
       if (!user) {
         throw new Error(
@@ -400,11 +497,15 @@ export const authApi = {
         );
       }
 
-      setAuthSession(token, user);
+      setAuthSession(
+        token,
+        user
+      );
 
       if (
-        String(user.role || "").toLowerCase() ===
-        "admin"
+        String(
+          user.role || ""
+        ).toLowerCase() === "admin"
       ) {
         resetWorkspaceForNewAdmin(
           user.username
@@ -420,17 +521,20 @@ export const authApi = {
 
     ensureOwnerAccount();
 
-    const users = getStoredUsers();
+    const users =
+      getStoredUsers();
 
-    const matchedUser = users.find(
-      (user) =>
-        String(
-          user.username || ""
-        ).toLowerCase() ===
-          username.toLowerCase() &&
-        String(user.password || "") ===
-          password
-    );
+    const matchedUser =
+      users.find(
+        (user) =>
+          String(
+            user.username || ""
+          ).toLowerCase() ===
+            username.toLowerCase() &&
+          String(
+            user.password || ""
+          ) === password
+      );
 
     if (matchedUser) {
       const payloadUser = {
@@ -457,8 +561,11 @@ export const authApi = {
 
       return {
         data: {
-          access: "demo-token",
-          user: payloadUser,
+          access:
+            "demo-token",
+
+          user:
+            payloadUser,
         },
       };
     }
@@ -470,16 +577,19 @@ export const authApi = {
 
   signup: async (data = {}) => {
     if (!useDummyData) {
-      const response = await api.post(
-        "/auth/signup",
-        data
-      );
+      const response =
+        await api.post(
+          "/auth/signup",
+          data
+        );
 
       const user =
         response.data?.user || null;
 
       const token =
-        getResponseToken(response.data);
+        getResponseToken(
+          response.data
+        );
 
       if (!user) {
         throw new Error(
@@ -504,14 +614,18 @@ export const authApi = {
     );
   },
 
-  updateOwner: async (data = {}) => {
-    const username = String(
-      data?.username || ""
-    ).trim();
+  updateOwner: async (
+    data = {}
+  ) => {
+    const username =
+      String(
+        data?.username || ""
+      ).trim();
 
-    const currentPassword = String(
-      data?.current_password || ""
-    );
+    const currentPassword =
+      String(
+        data?.current_password || ""
+      );
 
     if (!username) {
       throw new Error(
@@ -531,25 +645,29 @@ export const authApi = {
       );
     }
 
-    const response = await api.put(
-      "/auth/update-owner",
-      {
-        username,
-        current_password:
-          currentPassword,
-      },
-    );
+    const response =
+      await api.put(
+        "/auth/update-owner",
+        {
+          username,
+          current_password:
+            currentPassword,
+        }
+      );
 
     const user =
       response.data?.user || null;
 
     const newToken =
-      getResponseToken(response.data);
+      getResponseToken(
+        response.data
+      );
 
     if (newToken) {
       setAuthSession(
         newToken,
-        user || getCurrentUser()
+        user ||
+          getCurrentUser()
       );
     } else if (user) {
       setCurrentUser(user);
@@ -558,14 +676,18 @@ export const authApi = {
     return response;
   },
 
-  updatePassword: async (data = {}) => {
-    const currentPassword = String(
-      data?.current_password || ""
-    );
+  updatePassword: async (
+    data = {}
+  ) => {
+    const currentPassword =
+      String(
+        data?.current_password || ""
+      );
 
-    const newPassword = String(
-      data?.new_password || ""
-    );
+    const newPassword =
+      String(
+        data?.new_password || ""
+      );
 
     if (!currentPassword) {
       throw new Error(
@@ -579,7 +701,9 @@ export const authApi = {
       );
     }
 
-    if (newPassword.length < 6) {
+    if (
+      newPassword.length < 6
+    ) {
       throw new Error(
         "New password must contain at least 6 characters."
       );
@@ -591,27 +715,31 @@ export const authApi = {
       );
     }
 
-    const response = await api.put(
-      "/auth/update-password",
-      {
-        current_password:
-          currentPassword,
+    const response =
+      await api.put(
+        "/auth/update-password",
+        {
+          current_password:
+            currentPassword,
 
-        new_password:
-          newPassword,
-      }
-    );
+          new_password:
+            newPassword,
+        }
+      );
 
     const user =
       response.data?.user || null;
 
     const newToken =
-      getResponseToken(response.data);
+      getResponseToken(
+        response.data
+      );
 
     if (newToken) {
       setAuthSession(
         newToken,
-        user || getCurrentUser()
+        user ||
+          getCurrentUser()
       );
     } else if (user) {
       setCurrentUser(user);
@@ -621,7 +749,9 @@ export const authApi = {
   },
 
   me: () =>
-    api.get("/auth/me"),
+    api.get(
+      "/auth/me"
+    ),
 };
 
 /*
@@ -633,30 +763,35 @@ export const authApi = {
 export const dashboardApi = {
   summary: () => {
     if (!useDummyData) {
-      return api.get("/dashboard/");
+      return api.get(
+        "/dashboard/"
+      );
     }
 
     return Promise.resolve({
       data: {
-        recent: clone(
-          dummyData.enquiries
-        ).map((row) => [
-          row.admin,
-          row.candidate_name,
-          row.mobile,
-          row.city,
-          row.category,
-          row.course,
-          row.next_followup_date,
-          row.status,
-        ]),
+        recent:
+          clone(
+            dummyData.enquiries
+          ).map((row) => [
+            row.admin,
+            row.candidate_name,
+            row.mobile,
+            row.city,
+            row.category,
+            row.course,
+            row.next_followup_date,
+            row.status,
+          ]),
 
-        follow: clone(
-          dummyData.enquiries
-        ).map((row) => ({
-          ...row,
-          name: row.candidate_name,
-        })),
+        follow:
+          clone(
+            dummyData.enquiries
+          ).map((row) => ({
+            ...row,
+            name:
+              row.candidate_name,
+          })),
 
         categories:
           dummyData.categories.map(
@@ -686,13 +821,14 @@ export const dashboardApi = {
     }
 
     return Promise.resolve({
-      data: clone(
-        dummyData.notifications
-      ).map((row) => ({
-        ...row,
-        name:
-          row.student_name,
-      })),
+      data:
+        clone(
+          dummyData.notifications
+        ).map((row) => ({
+          ...row,
+          name:
+            row.student_name,
+        })),
     });
   },
 };
@@ -731,7 +867,9 @@ export const enquiryApi = {
       ),
     };
 
-    dummyData.enquiries.push(row);
+    dummyData.enquiries.push(
+      row
+    );
 
     persistDummyData();
 
@@ -758,7 +896,10 @@ export const enquiryApi = {
     });
   },
 
-  update: (id, data) => {
+  update: (
+    id,
+    data
+  ) => {
     if (!useDummyData) {
       return api.patch(
         `/enquiries/${id}/`,
@@ -892,14 +1033,21 @@ export const studentApi = {
     }
 
     const paidFee =
-      Number(data?.paidFee) || 0;
+      Number(
+        data?.paidFee
+      ) || 0;
 
     const balanceFee =
-      Number(data?.balanceFee) || 0;
+      Number(
+        data?.balanceFee
+      ) || 0;
 
     const totalFee =
-      Number(data?.totalFee) ||
-      paidFee + balanceFee;
+      Number(
+        data?.totalFee
+      ) ||
+      paidFee +
+        balanceFee;
 
     const student = {
       ...data,
@@ -959,7 +1107,9 @@ export const studentApi = {
     persistDummyData();
 
     return Promise.resolve({
-      data: clone(student),
+      data: clone(
+        student
+      ),
     });
   },
 
@@ -1017,17 +1167,26 @@ export const studentApi = {
     }
 
     const oldStudent =
-      dummyData.students[index];
+      dummyData.students[
+        index
+      ];
 
     const paidFee =
-      Number(data?.paidFee) || 0;
+      Number(
+        data?.paidFee
+      ) || 0;
 
     const balanceFee =
-      Number(data?.balanceFee) || 0;
+      Number(
+        data?.balanceFee
+      ) || 0;
 
     const totalFee =
-      Number(data?.totalFee) ||
-      paidFee + balanceFee;
+      Number(
+        data?.totalFee
+      ) ||
+      paidFee +
+        balanceFee;
 
     const updatedStudent = {
       ...oldStudent,
@@ -1044,19 +1203,22 @@ export const studentApi = {
       totalFee,
     };
 
-    dummyData.students[index] =
-      updatedStudent;
+    dummyData.students[
+      index
+    ] = updatedStudent;
 
     const enquiryIndex =
       dummyData.enquiries.findIndex(
         (row) =>
           String(
-            row.candidate_name || ""
+            row.candidate_name ||
+              ""
           )
             .trim()
             .toLowerCase() ===
             String(
-              oldStudent.name || ""
+              oldStudent.name ||
+                ""
             )
               .trim()
               .toLowerCase() &&
@@ -1064,11 +1226,14 @@ export const studentApi = {
             row.mobile || ""
           ) ===
             String(
-              oldStudent.mobile || ""
+              oldStudent.mobile ||
+                ""
             )
       );
 
-    if (enquiryIndex >= 0) {
+    if (
+      enquiryIndex >= 0
+    ) {
       dummyData.enquiries[
         enquiryIndex
       ] = {
@@ -1136,12 +1301,14 @@ export const studentApi = {
           (row) =>
             !(
               String(
-                row.candidate_name || ""
+                row.candidate_name ||
+                  ""
               )
                 .trim()
                 .toLowerCase() ===
                 String(
-                  student.name || ""
+                  student.name ||
+                    ""
                 )
                   .trim()
                   .toLowerCase() &&
@@ -1149,7 +1316,8 @@ export const studentApi = {
                 row.mobile || ""
               ) ===
                 String(
-                  student.mobile || ""
+                  student.mobile ||
+                    ""
                 )
             )
         );
@@ -1275,7 +1443,11 @@ export function saveLocalCategory(
   const categories =
     getLocalCategories();
 
-  if (!categories.includes(name)) {
+  if (
+    !categories.includes(
+      name
+    )
+  ) {
     localStorage.setItem(
       "scot_it_categories",
       JSON.stringify([
@@ -1384,8 +1556,9 @@ export const categoryApi = {
       );
 
     if (index >= 0) {
-      dummyData.categories[index] =
-        data.name;
+      dummyData.categories[
+        index
+      ] = data.name;
     }
 
     persistDummyData();
@@ -1426,35 +1599,47 @@ export const categoryApi = {
  * TYPE API
  * ======================================================
  *
- * BACKEND:
+ * IMPORTANT:
  *
- * GET    /api/types
- * POST   /api/types
- * PATCH  /api/types/:id
- * DELETE /api/types/:id
+ * Backend endpoints expected:
  *
- * Axios baseURL:
+ * GET    /api/types/
+ * POST   /api/types/
+ * PATCH  /api/types/<id>/
+ * DELETE /api/types/<id>/
  *
- * https://scot-it-academy-1.onrender.com/api
+ * Backend response expected:
  *
- * Therefore:
+ * [
+ *   {
+ *     "id": 1,
+ *     "name": "Experience"
+ *   }
+ * ]
  *
- * api.get("/types")
+ * OR:
  *
- * becomes:
+ * {
+ *   "results": [
+ *     {
+ *       "id": 1,
+ *       "name": "Experience"
+ *     }
+ *   ]
+ * }
  *
- * https://scot-it-academy-1.onrender.com/api/types
- *
- * ======================================================
  */
+
+
 
 const getLocalTypes = () => {
   try {
-    const saved = JSON.parse(
-      localStorage.getItem(
-        "scot_it_types"
-      ) || "null"
-    );
+    const saved =
+      JSON.parse(
+        localStorage.getItem(
+          "scot_it_types"
+        ) || "null"
+      );
 
     if (
       Array.isArray(saved) &&
@@ -1500,15 +1685,28 @@ const saveLocalTypes = (
 
 export const typeApi = {
   /*
-   * ==========================================
-   * GET ALL TYPES
-   * ==========================================
+   * Get all types
    */
-
   list: async () => {
     if (!useDummyData) {
       const response =
-        await api.get("/types");
+        await api.get(
+          "/types/"
+        );
+
+      /*
+       * Supports both:
+       *
+       * [
+       *   {...}
+       * ]
+       *
+       * and:
+       *
+       * {
+       *   results: [...]
+       * }
+       */
 
       const data =
         Array.isArray(
@@ -1535,20 +1733,15 @@ export const typeApi = {
   },
 
   /*
-   * ==========================================
-   * CREATE TYPE
-   * ==========================================
+   * Create new type
    */
-
   create: async (
     data = {}
   ) => {
-    const name = String(
-      data?.name ||
-        data?.type ||
-        data?.title ||
-        ""
-    ).trim();
+    const name =
+      String(
+        data?.name || ""
+      ).trim();
 
     if (!name) {
       throw new Error(
@@ -1558,7 +1751,7 @@ export const typeApi = {
 
     if (!useDummyData) {
       return api.post(
-        "/types",
+        "/types/",
         {
           name,
         }
@@ -1600,21 +1793,16 @@ export const typeApi = {
   },
 
   /*
-   * ==========================================
-   * UPDATE TYPE
-   * ==========================================
+   * Update existing type
    */
-
   update: async (
     id,
     data = {}
   ) => {
-    const name = String(
-      data?.name ||
-        data?.type ||
-        data?.title ||
-        ""
-    ).trim();
+    const name =
+      String(
+        data?.name || ""
+      ).trim();
 
     if (!name) {
       throw new Error(
@@ -1624,7 +1812,7 @@ export const typeApi = {
 
     if (!useDummyData) {
       return api.patch(
-        `/types/${id}`,
+        `/types/${id}/`,
         {
           name,
         }
@@ -1656,7 +1844,7 @@ export const typeApi = {
           )
             .trim()
             .toLowerCase() ===
-          name.toLowerCase()
+            name.toLowerCase()
       );
 
     if (duplicate) {
@@ -1680,15 +1868,14 @@ export const typeApi = {
   },
 
   /*
-   * ==========================================
-   * DELETE TYPE
-   * ==========================================
+   * Delete type
    */
-
-  remove: async (id) => {
+  remove: async (
+    id
+  ) => {
     if (!useDummyData) {
       return api.delete(
-        `/types/${id}`
+        `/types/${id}/`
       );
     }
 

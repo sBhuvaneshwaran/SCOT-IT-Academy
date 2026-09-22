@@ -1112,38 +1112,32 @@ export default function Dashboard() {
   // RECENT ENQUIRY ROW
   // ====================================================
 
-  const recentRow =
-    (row) => [
+const recentRow =
+  (row, index) => [
+    index + 1,
 
-      row.admin ||
-        "Admin",
+    row.candidate_name ||
+      row.name ||
+      "",
 
-      row.candidate_name ||
-        row.name ||
-        "",
+    row.mobile ||
+      "",
 
-      row.mobile ||
-        "",
+    row.city ||
+      "",
 
-      row.city ||
-        "",
+    typeof row.category === "object"
+      ? row.category?.name || ""
+      : row.category || "",
 
-      typeof row.category ===
-      "object"
-        ? row.category?.name ||
-          ""
-        : row.category ||
-          "",
+    row.course ||
+      "",
 
-      row.course ||
-        "",
+    row.next_followup_date ||
+      "",
 
-      row.next_followup_date ||
-        "",
-
-      statusOf(row),
-
-    ];
+    statusOf(row),
+  ];
 
   // ====================================================
   // STATS
@@ -1511,7 +1505,7 @@ export default function Dashboard() {
               <tr>
 
                 {[
-                  "Admin",
+                  "ID",
                   "Candidate",
                   "Mobile",
                   "City",
@@ -1547,10 +1541,11 @@ export default function Dashboard() {
                   index
                 ) => {
 
-                  const values =
-                    recentRow(
-                      row
-                    );
+               const values =
+                recentRow(
+                  row,
+                  (page - 1) * 5 + index
+                );
 
                   return (
 

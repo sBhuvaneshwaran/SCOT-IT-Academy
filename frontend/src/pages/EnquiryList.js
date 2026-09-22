@@ -7,7 +7,6 @@ import React, {
 import {
   enquiryApi,
   referralApi,
-  typeApi,
 } from "../services/api";
 
 import {
@@ -25,23 +24,24 @@ const emptyForm = {
   mobile: "",
   city: "",
   type: "",
-  branch: "",
   category: "",
   course: "",
   referred_by: "",
-  admin: "",
   comments: "",
   next_followup_date: "",
   status: "Pending",
 };
 
 /* =========================================================
-   FALLBACK TYPES
-   Used only when Type API fails or returns no data.
+   DEFAULT TYPES FOR ADD / EDIT FORM
+
+   IMPORTANT:
+   These are ONLY for the Add/Edit Type dropdown.
+
+   They are NOT used for the Type FILTER.
 ========================================================= */
 
 const DEFAULT_TYPES = [
-  "Experience",
   "Students",
   "Freshers",
   "Experience in Non IT",
@@ -51,36 +51,227 @@ const DEFAULT_TYPES = [
 ];
 
 /* =========================================================
+   TYPE CACHE
+
+   Used only as a compatibility fallback for older
+   enquiries where the backend may not yet return `type`.
+
+   IMPORTANT:
+   The Type FILTER itself is generated ONLY from
+   the current enquiry table rows.
+========================================================= */
+
+const TYPE_CACHE_KEY =
+  "scot_it_enquiry_types";
+
+/* =========================================================
+   TYPE NAME HELPER
+========================================================= */
+
+function getTypeName(value) {
+  if (!value) {
+    return "";
+  }
+
+  if (typeof value === "string") {
+    return value.trim();
+  }
+
+  if (typeof value === "object") {
+    return String(
+      value.name ||
+        value.type ||
+        value.title ||
+        value.type_name ||
+        ""
+    ).trim();
+  }
+
+  return String(value).trim();
+}
+
+/* =========================================================
+   NORMALIZE TYPE
+
+   Old "Experience" values are converted to "Others".
+========================================================= */
+
+function normalizeTypeValue(value) {
+  const type = getTypeName(value);
+
+  if (!type) {
+    return "";
+  }
+
+  if (
+    type.toLowerCase() ===
+    "experience"
+  ) {
+    return "Others";
+  }
+
+  return type.trim();
+}
+
+/* =========================================================
+   TYPE CACHE HELPERS
+========================================================= */
+
+function getAllCachedTypes() {
+  try {
+    const value =
+      localStorage.getItem(
+        TYPE_CACHE_KEY
+      );
+
+    if (!value) {
+      return {};
+    }
+
+    const parsed =
+      JSON.parse(value);
+
+    if (
+      !parsed ||
+      typeof parsed !== "object"
+    ) {
+      return {};
+    }
+
+    return parsed;
+  } catch (error) {
+    console.warn(
+      "Unable to read Type cache:",
+      error
+    );
+
+    return {};
+  }
+}
+
+function getCachedType(id) {
+  if (!id) {
+    return "";
+  }
+
+  const cache =
+    getAllCachedTypes();
+
+  return normalizeTypeValue(
+    cache[String(id)] || ""
+  );
+}
+
+function setCachedType(
+  id,
+  type
+) {
+  if (!id) {
+    return;
+  }
+
+  const cache =
+    getAllCachedTypes();
+
+  const normalizedType =
+    normalizeTypeValue(type);
+
+  if (normalizedType) {
+    cache[String(id)] =
+      normalizedType;
+  } else {
+    delete cache[String(id)];
+  }
+
+  try {
+    localStorage.setItem(
+      TYPE_CACHE_KEY,
+      JSON.stringify(cache)
+    );
+  } catch (error) {
+    console.warn(
+      "Unable to save Type cache:",
+      error
+    );
+  }
+}
+
+/* =========================================================
    DATE HELPERS
 ========================================================= */
 
-function normalizeDateForInput(value) {
-  if (!value) return "";
+function normalizeDateForInput(
+  value
+) {
+  if (!value) {
+    return "";
+  }
 
-  const str = String(value).trim();
+  const str =
+    String(value).trim();
 
-  if (!str) return "";
+  if (!str) {
+    return "";
+  }
 
-  if (/^\d{4}-\d{2}-\d{2}$/.test(str)) {
+  /* YYYY-MM-DD */
+
+  if (
+    /^\d{4}-\d{2}-\d{2}$/.test(
+      str
+    )
+  ) {
     return str;
   }
 
-  if (/^\d{4}-\d{2}-\d{2}T/.test(str)) {
+  /* YYYY-MM-DDTHH:mm:ss */
+
+  if (
+    /^\d{4}-\d{2}-\d{2}T/.test(
+      str
+    )
+  ) {
     return str.substring(0, 10);
   }
 
-  if (/^\d{4}-\d{2}-\d{2}\s/.test(str)) {
+  /* YYYY-MM-DD HH:mm:ss */
+
+  if (
+    /^\d{4}-\d{2}-\d{2}\s/.test(
+      str
+    )
+  ) {
     return str.substring(0, 10);
   }
 
-  if (/^\d{2}-\d{2}-\d{4}$/.test(str)) {
-    const [day, month, year] = str.split("-");
+  /* DD-MM-YYYY */
+
+  if (
+    /^\d{2}-\d{2}-\d{4}$/.test(
+      str
+    )
+  ) {
+    const [
+      day,
+      month,
+      year,
+    ] = str.split("-");
 
     return `${year}-${month}-${day}`;
   }
 
-  if (/^\d{2}\/\d{2}\/\d{4}$/.test(str)) {
-    const [day, month, year] = str.split("/");
+  /* DD/MM/YYYY */
+
+  if (
+    /^\d{2}\/\d{2}\/\d{4}$/.test(
+      str
+    )
+  ) {
+    const [
+      day,
+      month,
+      year,
+    ] = str.split("/");
 
     return `${year}-${month}-${day}`;
   }
@@ -89,105 +280,39 @@ function normalizeDateForInput(value) {
 }
 
 /* =========================================================
-   TYPE CACHE
-========================================================= */
-
-const TYPE_CACHE_KEY = "scot_it_enquiry_types";
-
-function getAllCachedTypes() {
-  try {
-    return JSON.parse(
-      localStorage.getItem(TYPE_CACHE_KEY) || "{}"
-    );
-  } catch {
-    return {};
-  }
-}
-
-function getCachedType(id) {
-  if (!id) return "";
-
-  return (
-    getAllCachedTypes()[String(id)] || ""
-  );
-}
-
-function setCachedType(id, type) {
-  if (!id) return;
-
-  const cache = getAllCachedTypes();
-
-  if (type && String(type).trim()) {
-    cache[String(id)] = String(type).trim();
-  } else {
-    delete cache[String(id)];
-  }
-
-  localStorage.setItem(
-    TYPE_CACHE_KEY,
-    JSON.stringify(cache)
-  );
-}
-
-/* =========================================================
-   GET TYPE NAME SAFELY
-========================================================= */
-
-function getTypeName(value) {
-  if (!value) {
-    return "";
-  }
-
-  /*
-   * If backend returns:
-   * type: "Experience"
-   */
-  if (typeof value === "string") {
-    return value.trim();
-  }
-
-  /*
-   * If backend returns:
-   * type: { id: 1, name: "Experience" }
-   */
-  if (typeof value === "object") {
-    return String(
-      value.name ||
-      value.type ||
-      value.title ||
-      value.type_name ||
-      ""
-    ).trim();
-  }
-
-  return String(value).trim();
-}
-
-/* =========================================================
    NORMALIZE ENQUIRY
+
+   TYPE RULE:
+
+   1. First use row.type.
+   2. For old records only, use cached Type.
+   3. DO NOT use degree/education/type_name as Type.
 ========================================================= */
 
 function normalize(row = {}) {
-  const backendType = getTypeName(row.type);
+  const backendType =
+    normalizeTypeValue(
+      row.type
+    );
 
-  const educationType = getTypeName(
-    row.education
-  );
-
-  const degreeType = getTypeName(
-    row.degree
-  );
-
-  const cachedType = getCachedType(
-    row.id
-  );
+  const cachedType =
+    getCachedType(row.id);
 
   const finalType =
     backendType ||
-    educationType ||
-    degreeType ||
     cachedType ||
     "";
+
+  const followupDate =
+    normalizeDateForInput(
+      row.next_followup_date ??
+        row.nextFollowUpDate ??
+        row.next_follow_up_date ??
+        row.followup_date ??
+        row.follow_up_date ??
+        row.date ??
+        ""
+    );
 
   return {
     ...row,
@@ -213,15 +338,16 @@ function normalize(row = {}) {
       row.city ||
       "",
 
-    /*
-     * TYPE
-     */
+    /* TYPE */
+
     type: finalType,
 
-    education: finalType,
+    /* Compatibility */
 
-    branch:
-      row.branch ||
+    type_name: finalType,
+
+    education:
+      row.education ||
       "",
 
     category:
@@ -232,31 +358,15 @@ function normalize(row = {}) {
       row.course ||
       "",
 
-    admin:
-      row.admin ||
-      "",
-
     comments:
       row.comments ||
       "",
 
     next_followup_date:
-      normalizeDateForInput(
-        row.next_followup_date ??
-        row.nextFollowUpDate ??
-        row.next_follow_up_date ??
-        row.date ??
-        ""
-      ),
+      followupDate,
 
     date:
-      normalizeDateForInput(
-        row.next_followup_date ??
-        row.nextFollowUpDate ??
-        row.next_follow_up_date ??
-        row.date ??
-        ""
-      ),
+      followupDate,
 
     status:
       row.status ||
@@ -266,6 +376,7 @@ function normalize(row = {}) {
 
     referred_by:
       row.referred_by ||
+      row.referredBy ||
       "",
   };
 }
@@ -274,8 +385,11 @@ function normalize(row = {}) {
    FORM BUILDER
 ========================================================= */
 
-function enquiryToForm(row = {}) {
-  const normalized = normalize(row);
+function enquiryToForm(
+  row = {}
+) {
+  const normalized =
+    normalize(row);
 
   return {
     ...emptyForm,
@@ -290,10 +404,9 @@ function enquiryToForm(row = {}) {
       normalized.city,
 
     type:
-      normalized.type,
-
-    branch:
-      normalized.branch,
+      normalizeTypeValue(
+        normalized.type
+      ),
 
     category:
       normalized.category,
@@ -304,9 +417,6 @@ function enquiryToForm(row = {}) {
     referred_by:
       normalized.referred_by,
 
-    admin:
-      normalized.admin,
-
     comments:
       normalized.comments,
 
@@ -316,7 +426,8 @@ function enquiryToForm(row = {}) {
       ),
 
     status:
-      normalized.status || "Pending",
+      normalized.status ||
+      "Pending",
   };
 }
 
@@ -325,9 +436,11 @@ function enquiryToForm(row = {}) {
 ========================================================= */
 
 export default function EnquiryList() {
-  const [rows, setRows] = useState([]);
+  const [rows, setRows] =
+    useState([]);
 
-  const [q, setQ] = useState("");
+  const [q, setQ] =
+    useState("");
 
   const [typeFilter, setTypeFilter] =
     useState("");
@@ -361,25 +474,13 @@ export default function EnquiryList() {
   const [error, setError] =
     useState("");
 
-  /* =======================================================
-     TYPE MASTER DATA
-  ======================================================= */
-
-  const [masterTypes, setMasterTypes] =
-    useState([]);
-
-  const [typesLoading, setTypesLoading] =
-    useState(false);
-
-  /* =======================================================
-     REFERRED BY MASTER DATA
-  ======================================================= */
-
   const [referrals, setReferrals] =
     useState([]);
 
-  const [referralsLoading, setReferralsLoading] =
-    useState(false);
+  const [
+    referralsLoading,
+    setReferralsLoading,
+  ] = useState(false);
 
   const ITEMS_PER_PAGE = 10;
 
@@ -407,7 +508,9 @@ export default function EnquiryList() {
         const normalizedRows =
           data.map(normalize);
 
-        setRows(normalizedRows);
+        setRows(
+          normalizedRows
+        );
       } else {
         setRows([]);
       }
@@ -428,107 +531,7 @@ export default function EnquiryList() {
   }
 
   /* =========================================================
-     LOAD TYPE MASTER DATA
-  ========================================================= */
-
-  async function loadTypes() {
-    setTypesLoading(true);
-
-    try {
-      /*
-       * IMPORTANT:
-       *
-       * This must come from your Type Management API.
-       *
-       * Example:
-       * GET /api/types/
-       */
-
-      const response =
-        await typeApi.list();
-
-      const responseData =
-        response?.data;
-
-      const data =
-        responseData?.results ||
-        responseData ||
-        [];
-
-      if (!Array.isArray(data)) {
-        throw new Error(
-          "Invalid Type API response"
-        );
-      }
-
-      /*
-       * Convert different backend formats
-       * into simple Type names.
-       */
-
-      const cleanTypes = data
-        .map((item) => {
-          return getTypeName(
-            item?.name ||
-            item?.type ||
-            item?.title ||
-            item?.type_name
-          );
-        })
-        .filter(Boolean);
-
-      /*
-       * Remove duplicate Type names.
-       */
-
-      const uniqueTypes = [
-        ...new Set(cleanTypes),
-      ].sort((a, b) =>
-        a.localeCompare(b)
-      );
-
-      console.log(
-        "Type master data from API:",
-        uniqueTypes
-      );
-
-      /*
-       * If API contains types,
-       * use database values.
-       */
-
-      if (uniqueTypes.length > 0) {
-        setMasterTypes(
-          uniqueTypes
-        );
-      } else {
-        /*
-         * API returned empty.
-         */
-        setMasterTypes(
-          DEFAULT_TYPES
-        );
-      }
-    } catch (err) {
-      console.error(
-        "Failed to load Type master data:",
-        err
-      );
-
-      /*
-       * Do not break the edit form.
-       */
-
-      setMasterTypes(
-        DEFAULT_TYPES
-      );
-    } finally {
-      setTypesLoading(false);
-    }
-  }
-
-  /* =========================================================
-     LOAD REFERRED BY MASTER DATA
+     LOAD REFERRED BY
   ========================================================= */
 
   async function loadReferrals() {
@@ -551,11 +554,12 @@ export default function EnquiryList() {
           ? data
               .map((item) => ({
                 id: item.id,
+
                 name: String(
                   item.name ||
-                  item.referral_name ||
-                  item.title ||
-                  ""
+                    item.referral_name ||
+                    item.title ||
+                    ""
                 ).trim(),
               }))
               .filter(
@@ -564,10 +568,11 @@ export default function EnquiryList() {
               )
           : [];
 
-      cleanData.sort((a, b) =>
-        a.name.localeCompare(
-          b.name
-        )
+      cleanData.sort(
+        (a, b) =>
+          a.name.localeCompare(
+            b.name
+          )
       );
 
       setReferrals(
@@ -581,7 +586,9 @@ export default function EnquiryList() {
 
       setReferrals([]);
     } finally {
-      setReferralsLoading(false);
+      setReferralsLoading(
+        false
+      );
     }
   }
 
@@ -591,118 +598,259 @@ export default function EnquiryList() {
 
   useEffect(() => {
     loadEnquiries();
-    loadTypes();
     loadReferrals();
   }, []);
 
   /* =========================================================
-     REFRESH MASTER DATA WHEN WINDOW GETS FOCUS
-  ========================================================= */
+     TYPE FILTER LIST
 
-  useEffect(() => {
-    function handleWindowFocus() {
-      loadTypes();
-      loadReferrals();
-    }
+     IMPORTANT:
 
-    window.addEventListener(
-      "focus",
-      handleWindowFocus
-    );
+     This list contains ONLY Types currently
+     available in the All Enquiries table.
 
-    return () => {
-      window.removeEventListener(
-        "focus",
-        handleWindowFocus
-      );
-    };
-  }, []);
+     It does NOT contain DEFAULT_TYPES.
 
-  /* =========================================================
-     TYPE OPTIONS
+     Example current table:
+
+       Students
+       Freshers
+       Career Gap
+
+     Filter becomes:
+
+       All Types
+       Career Gap
+       Freshers
+       Students
   ========================================================= */
 
   const types = useMemo(() => {
-    const combined = [
-      ...masterTypes,
-    ];
-
-    /*
-     * Keep existing enquiry types.
-     *
-     * This is useful when an old enquiry contains
-     * a Type which has subsequently been deleted
-     * from Type Master.
-     */
+    const typeSet =
+      new Set();
 
     rows.forEach((row) => {
-      const value =
-        getTypeName(row.type);
+      const type =
+        normalizeTypeValue(
+          row.type
+        );
 
-      if (value) {
-        combined.push(value);
+      if (type) {
+        typeSet.add(type);
       }
     });
 
-    /*
-     * Keep currently selected Type.
-     */
+    return Array.from(
+      typeSet
+    ).sort((a, b) =>
+      a.localeCompare(b)
+    );
+  }, [rows]);
+
+  /* =========================================================
+     EDIT FORM TYPE LIST
+
+     IMPORTANT:
+
+     This is DIFFERENT from `types`.
+
+     The Edit form always shows all standard Types:
+
+       Students
+       Freshers
+       Experience in Non IT
+       Experience in IT
+       Career Gap
+       Others
+
+     It also adds any custom Type currently
+     available in the enquiry table.
+
+     It also keeps the current form value.
+  ========================================================= */
+
+  const editTypes = useMemo(() => {
+    const values = [];
+
+    /* ---------------------------------------------
+       1. Add standard Types first
+    --------------------------------------------- */
+
+    DEFAULT_TYPES.forEach(
+      (type) => {
+        const normalized =
+          normalizeTypeValue(
+            type
+          );
+
+        if (
+          normalized &&
+          !values.includes(
+            normalized
+          )
+        ) {
+          values.push(
+            normalized
+          );
+        }
+      }
+    );
+
+    /* ---------------------------------------------
+       2. Add custom Types from current table
+    --------------------------------------------- */
+
+    rows.forEach((row) => {
+      const type =
+        normalizeTypeValue(
+          row.type
+        );
+
+      if (
+        type &&
+        !values.includes(type)
+      ) {
+        values.push(type);
+      }
+    });
+
+    /* ---------------------------------------------
+       3. Add currently selected form Type
+    --------------------------------------------- */
 
     const currentFormType =
-      getTypeName(form.type);
+      normalizeTypeValue(
+        form.type
+      );
 
-    if (currentFormType) {
-      combined.push(
+    if (
+      currentFormType &&
+      !values.includes(
+        currentFormType
+      )
+    ) {
+      values.push(
         currentFormType
       );
     }
 
+    /* ---------------------------------------------
+       Keep default order.
+       Sort only custom Types.
+    --------------------------------------------- */
+
+    const defaultSet =
+      new Set(
+        DEFAULT_TYPES.map(
+          normalizeTypeValue
+        )
+      );
+
+    const customTypes =
+      values
+        .filter(
+          (type) =>
+            !defaultSet.has(
+              type
+            )
+        )
+        .sort((a, b) =>
+          a.localeCompare(b)
+        );
+
     return [
-      ...new Set(
-        combined.filter(Boolean)
+      ...DEFAULT_TYPES.map(
+        normalizeTypeValue
       ),
-    ].sort((a, b) =>
-      a.localeCompare(b)
+      ...customTypes,
+    ].filter(
+      (type, index, array) =>
+        type &&
+        array.indexOf(
+          type
+        ) === index
     );
   }, [
-    masterTypes,
     rows,
     form.type,
+  ]);
+
+  /* =========================================================
+     AUTOMATICALLY RESET TYPE FILTER
+
+     Example:
+
+     Current table:
+       Students
+       Career Gap
+
+     User selects:
+       Career Gap
+
+     Then edits the last Career Gap record to:
+       Students
+
+     Career Gap disappears from `types`.
+
+     This automatically clears the old filter,
+     so the table does not become unexpectedly empty.
+  ========================================================= */
+
+  useEffect(() => {
+    const selectedType =
+      normalizeTypeValue(
+        typeFilter
+      );
+
+    if (
+      selectedType &&
+      !types.includes(
+        selectedType
+      )
+    ) {
+      setTypeFilter("");
+      setPage(1);
+    }
+  }, [
+    types,
+    typeFilter,
   ]);
 
   /* =========================================================
      CATEGORIES
   ========================================================= */
 
-  const categories = useMemo(() => {
-    return [
-      ...new Set(
-        rows
-          .map(
-            (row) =>
-              row.category
-          )
-          .filter(Boolean)
-      ),
-    ].sort();
-  }, [rows]);
+  const categories =
+    useMemo(() => {
+      return [
+        ...new Set(
+          rows
+            .map(
+              (row) =>
+                row.category
+            )
+            .filter(Boolean)
+        ),
+      ].sort();
+    }, [rows]);
 
   /* =========================================================
      STATUSES
   ========================================================= */
 
-  const statuses = useMemo(() => {
-    return [
-      ...new Set(
-        rows
-          .map(
-            (row) =>
-              row.status
-          )
-          .filter(Boolean)
-      ),
-    ].sort();
-  }, [rows]);
+  const statuses =
+    useMemo(() => {
+      return [
+        ...new Set(
+          rows
+            .map(
+              (row) =>
+                row.status
+            )
+            .filter(Boolean)
+        ),
+      ].sort();
+    }, [rows]);
 
   /* =========================================================
      FILTER
@@ -711,7 +859,9 @@ export default function EnquiryList() {
   const allFiltered =
     useMemo(() => {
       const search =
-        q.trim().toLowerCase();
+        q
+          .trim()
+          .toLowerCase();
 
       return rows.filter(
         (row) => {
@@ -719,15 +869,26 @@ export default function EnquiryList() {
             !search ||
             `${row.name || ""} ${
               row.mobile || ""
+            } ${
+              row.course || ""
             }`
               .toLowerCase()
               .includes(search);
 
-          const matchesType =
-            !typeFilter ||
-            getTypeName(
+          const rowType =
+            normalizeTypeValue(
               row.type
-            ) === typeFilter;
+            );
+
+          const selectedType =
+            normalizeTypeValue(
+              typeFilter
+            );
+
+          const matchesType =
+            !selectedType ||
+            rowType ===
+              selectedType;
 
           const matchesCategory =
             !category ||
@@ -769,8 +930,13 @@ export default function EnquiryList() {
     );
 
   useEffect(() => {
-    if (page > totalPages) {
-      setPage(totalPages);
+    if (
+      page >
+      totalPages
+    ) {
+      setPage(
+        totalPages
+      );
     }
   }, [
     page,
@@ -783,8 +949,8 @@ export default function EnquiryList() {
         ...allFiltered,
       ].sort(
         (a, b) =>
-          Number(b.id) -
-          Number(a.id)
+          Number(b.id || 0) -
+          Number(a.id || 0)
       );
 
       const start =
@@ -793,7 +959,8 @@ export default function EnquiryList() {
 
       return sorted.slice(
         start,
-        start + ITEMS_PER_PAGE
+        start +
+          ITEMS_PER_PAGE
       );
     }, [
       allFiltered,
@@ -801,7 +968,7 @@ export default function EnquiryList() {
     ]);
 
   /* =========================================================
-     SEARCH / FILTER CHANGE
+     SEARCH / FILTER
   ========================================================= */
 
   function updateFilter(
@@ -829,7 +996,8 @@ export default function EnquiryList() {
       const detail =
         normalize({
           ...row,
-          ...(response?.data || {}),
+          ...(response?.data ||
+            {}),
         });
 
       setModal({
@@ -857,23 +1025,10 @@ export default function EnquiryList() {
     setMessage("");
     setError("");
 
-    /*
-     * Load latest Type master and
-     * Referred By master data.
-     */
-
-    await Promise.all([
-      loadTypes(),
-      loadReferrals(),
-    ]);
+    await loadReferrals();
 
     let editData =
       normalize(row);
-
-    /*
-     * Get latest enquiry data
-     * from database.
-     */
 
     try {
       const response =
@@ -884,7 +1039,8 @@ export default function EnquiryList() {
       editData =
         normalize({
           ...row,
-          ...(response?.data || {}),
+          ...(response?.data ||
+            {}),
         });
     } catch (err) {
       console.warn(
@@ -898,17 +1054,14 @@ export default function EnquiryList() {
         editData
       );
 
-    /*
-     * Make sure the current Type
-     * is always a string.
-     */
-
     editForm.type =
-      getTypeName(
+      normalizeTypeValue(
         editForm.type
       );
 
-    setForm(editForm);
+    setForm(
+      editForm
+    );
 
     setModal({
       type: "edit",
@@ -926,17 +1079,32 @@ export default function EnquiryList() {
       value,
     } = event.target;
 
+    let nextValue =
+      value;
+
+    if (
+      name === "type"
+    ) {
+      nextValue =
+        normalizeTypeValue(
+          value
+        );
+    }
+
+    if (
+      name ===
+      "next_followup_date"
+    ) {
+      nextValue =
+        normalizeDateForInput(
+          value
+        );
+    }
+
     setForm(
       (previous) => ({
         ...previous,
-
-        [name]:
-          name ===
-          "next_followup_date"
-            ? normalizeDateForInput(
-                value
-              )
-            : value,
+        [name]: nextValue,
       })
     );
   }
@@ -964,9 +1132,13 @@ export default function EnquiryList() {
         (previous) =>
           previous.filter(
             (item) =>
-              item.id !==
-              row.id
+              item.id !== row.id
           )
+      );
+
+      setCachedType(
+        row.id,
+        ""
       );
 
       if (
@@ -995,6 +1167,13 @@ export default function EnquiryList() {
 
   /* =========================================================
      SAVE / UPDATE
+
+     Type is sent using both:
+       type
+       education
+
+     This keeps compatibility with the
+     existing backend.
   ========================================================= */
 
   async function save(event) {
@@ -1004,6 +1183,7 @@ export default function EnquiryList() {
       setError(
         "Enquiry ID is missing."
       );
+
       return;
     }
 
@@ -1011,22 +1191,17 @@ export default function EnquiryList() {
     setMessage("");
     setError("");
 
-    /*
-     * Get selected Type.
-     */
-
     const selectedType =
-      getTypeName(
+      normalizeTypeValue(
         form.type
       );
 
-    /*
-     * Build payload.
-     */
+    const selectedReferredBy =
+      String(
+        form.referred_by || ""
+      ).trim();
 
     const payload = {
-      ...form,
-
       candidate_name:
         String(
           form.candidate_name ||
@@ -1043,24 +1218,11 @@ export default function EnquiryList() {
           form.city || ""
         ).trim(),
 
-      /*
-       * TYPE
-       */
       type:
         selectedType,
 
-      /*
-       * Keep education in payload only
-       * because your existing backend may
-       * use this field.
-       */
       education:
         selectedType,
-
-      branch:
-        String(
-          form.branch || ""
-        ).trim(),
 
       category:
         String(
@@ -1073,14 +1235,7 @@ export default function EnquiryList() {
         ).trim(),
 
       referred_by:
-        String(
-          form.referred_by || ""
-        ).trim(),
-
-      admin:
-        String(
-          form.admin || ""
-        ).trim(),
+        selectedReferredBy,
 
       comments:
         String(
@@ -1110,6 +1265,11 @@ export default function EnquiryList() {
     );
 
     console.log(
+      "Selected Referred By:",
+      selectedReferredBy
+    );
+
+    console.log(
       "Update payload:",
       payload
     );
@@ -1129,37 +1289,79 @@ export default function EnquiryList() {
       const responseData =
         response?.data || {};
 
-      /*
-       * Build updated local row.
-       */
+      /* =====================================================
+         BUILD UPDATED OBJECT
+      ===================================================== */
 
       const updated =
         normalize({
           ...modal.row,
           ...responseData,
-          ...payload,
 
           type:
+            responseData.type ||
+            responseData.type_name ||
             selectedType,
 
           education:
+            responseData.education ||
             selectedType,
+
+          referred_by:
+            responseData.referred_by ??
+            selectedReferredBy,
+
+          candidate_name:
+            responseData.candidate_name ||
+            payload.candidate_name,
+
+          mobile:
+            responseData.mobile ||
+            payload.mobile,
+
+          city:
+            responseData.city ||
+            payload.city,
+
+          category:
+            responseData.category ||
+            payload.category,
+
+          course:
+            responseData.course ||
+            payload.course,
+
+          comments:
+            responseData.comments ??
+            payload.comments,
+
+          status:
+            responseData.status ||
+            payload.status,
+
+          next_followup_date:
+            responseData.next_followup_date ||
+            payload.next_followup_date,
         });
 
-      /*
-       * Cache selected Type.
-       */
+      /* =====================================================
+         SAVE TYPE LOCALLY
+      ===================================================== */
 
-      if (selectedType) {
-        setCachedType(
-          modal.row.id,
-          selectedType
-        );
-      }
+      setCachedType(
+        modal.row.id,
+        selectedType
+      );
 
-      /*
-       * Update table immediately.
-       */
+      /* =====================================================
+         IMPORTANT:
+
+         UPDATE TABLE IMMEDIATELY.
+
+         Because `types` depends on `rows`,
+         the Type FILTER will automatically
+         update here.
+      ===================================================== */
 
       setRows(
         (previous) =>
@@ -1170,13 +1372,6 @@ export default function EnquiryList() {
                 ? normalize({
                     ...row,
                     ...updated,
-                    ...payload,
-
-                    name:
-                      payload.candidate_name,
-
-                    candidate_name:
-                      payload.candidate_name,
 
                     type:
                       selectedType,
@@ -1185,10 +1380,28 @@ export default function EnquiryList() {
                       selectedType,
 
                     referred_by:
-                      payload.referred_by,
+                      selectedReferredBy,
 
-                    date:
-                      payload.next_followup_date,
+                    candidate_name:
+                      payload.candidate_name,
+
+                    mobile:
+                      payload.mobile,
+
+                    city:
+                      payload.city,
+
+                    category:
+                      payload.category,
+
+                    course:
+                      payload.course,
+
+                    comments:
+                      payload.comments,
+
+                    status:
+                      payload.status,
 
                     next_followup_date:
                       payload.next_followup_date,
@@ -1197,36 +1410,54 @@ export default function EnquiryList() {
           )
       );
 
-      /*
-       * Final updated row.
-       */
+      /* =====================================================
+         FINAL UPDATED DATA
+      ===================================================== */
 
       const finalUpdated =
         normalize({
           ...modal.row,
           ...updated,
-          ...payload,
 
           type:
             selectedType,
 
           education:
             selectedType,
-        });
 
-      /*
-       * Update form.
-       */
+          referred_by:
+            selectedReferredBy,
+
+          candidate_name:
+            payload.candidate_name,
+
+          mobile:
+            payload.mobile,
+
+          city:
+            payload.city,
+
+          category:
+            payload.category,
+
+          course:
+            payload.course,
+
+          comments:
+            payload.comments,
+
+          status:
+            payload.status,
+
+          next_followup_date:
+            payload.next_followup_date,
+        });
 
       setForm(
         enquiryToForm(
           finalUpdated
         )
       );
-
-      /*
-       * Update modal.
-       */
 
       setModal(
         (previous) => ({
@@ -1239,19 +1470,45 @@ export default function EnquiryList() {
         "Enquiry updated successfully."
       );
 
-      /*
-       * IMPORTANT:
-       *
-       * Get the latest database data.
-       */
+      /* =====================================================
+         REFRESH FROM BACKEND
+      ===================================================== */
 
       await loadEnquiries();
 
-      /*
-       * Refresh Type master also.
-       */
+      /* =====================================================
+         VERIFY BACKEND VALUE
+      ===================================================== */
 
-      await loadTypes();
+      try {
+        const verifyResponse =
+          await enquiryApi.detail(
+            modal.row.id
+          );
+
+        const verifyData =
+          verifyResponse?.data ||
+          {};
+
+        console.log(
+          "Verified DB/API enquiry after update:",
+          verifyData
+        );
+
+        console.log(
+          "Verified Type:",
+          verifyData.type ||
+            verifyData.type_name ||
+            "(backend did not return Type)"
+        );
+      } catch (
+        verifyError
+      ) {
+        console.warn(
+          "Could not verify updated enquiry:",
+          verifyError
+        );
+      }
     } catch (err) {
       console.error(
         "Enquiry update failed:",
@@ -1293,7 +1550,7 @@ export default function EnquiryList() {
   }
 
   /* =========================================================
-     EXPORT
+     EXPORT CSV
   ========================================================= */
 
   function exportToExcel() {
@@ -1316,8 +1573,7 @@ export default function EnquiryList() {
         key: null,
       },
       {
-        header:
-          "Candidate Name",
+        header: "Candidate Name",
         key: "candidate_name",
       },
       {
@@ -1345,15 +1601,12 @@ export default function EnquiryList() {
         key: "referred_by",
       },
       {
-        header:
-          "Enquiry Date",
+        header: "Enquiry Date",
         key: "enquiry_date",
       },
       {
-        header:
-          "Follow-up Date",
-        key:
-          "next_followup_date",
+        header: "Follow-up Date",
+        key: "next_followup_date",
       },
       {
         header: "Status",
@@ -1387,10 +1640,11 @@ export default function EnquiryList() {
 
     const headerRow =
       columns
-        .map((column) =>
-          csvCell(
-            column.header
-          )
+        .map(
+          (column) =>
+            csvCell(
+              column.header
+            )
         )
         .join(",");
 
@@ -1398,27 +1652,35 @@ export default function EnquiryList() {
       data.map(
         (row, index) =>
           columns
-            .map((column) => {
-              if (
-                column.key ===
-                null
-              ) {
-                return csvCell(
-                  index + 1
-                );
-              }
+            .map(
+              (column) => {
+                if (
+                  column.key ===
+                  null
+                ) {
+                  return csvCell(
+                    index + 1
+                  );
+                }
 
-              return csvCell(
-                column.key ===
+                if (
+                  column.key ===
                   "type"
-                  ? getTypeName(
+                ) {
+                  return csvCell(
+                    normalizeTypeValue(
                       row.type
                     )
-                  : row[
-                      column.key
-                    ]
-              );
-            })
+                  );
+                }
+
+                return csvCell(
+                  row[
+                    column.key
+                  ]
+                );
+              }
+            )
             .join(",")
       );
 
@@ -1537,7 +1799,7 @@ export default function EnquiryList() {
         <div className="filters">
           <input
             type="text"
-            placeholder="Search candidate / mobile..."
+            placeholder="Search candidate / mobile / course..."
             value={q}
             onChange={(e) =>
               updateFilter(
@@ -1547,7 +1809,11 @@ export default function EnquiryList() {
             }
           />
 
-          {/* TYPE FILTER */}
+          {/* =================================================
+              TYPE FILTER
+
+              ONLY CURRENT TABLE TYPES
+          ================================================= */}
 
           <select
             value={typeFilter}
@@ -1624,6 +1890,9 @@ export default function EnquiryList() {
             )}
           </select>
 
+          {/* Clear Filters intentionally kept commented */}
+
+          {/*
           {(q ||
             typeFilter ||
             category ||
@@ -1631,13 +1900,12 @@ export default function EnquiryList() {
             <button
               type="button"
               className="secondary"
-              onClick={
-                resetFilters
-              }
+              onClick={resetFilters}
             >
               Clear Filters
             </button>
           )}
+          */}
         </div>
 
         {/* =================================================
@@ -1765,9 +2033,9 @@ export default function EnquiryList() {
                       </td>
 
                       <td>
-                        {getTypeName(
+                        {normalizeTypeValue(
                           row.type
-                        )}
+                        ) || "-"}
                       </td>
 
                       <td>
@@ -1784,7 +2052,8 @@ export default function EnquiryList() {
 
                       <td>
                         {
-                          row.referred_by
+                          row.referred_by ||
+                          "-"
                         }
                       </td>
 
@@ -1943,7 +2212,7 @@ export default function EnquiryList() {
                   </small>
 
                   <strong>
-                    {getTypeName(
+                    {normalizeTypeValue(
                       modal.row
                         .type
                     ) || "—"}
@@ -2062,6 +2331,7 @@ export default function EnquiryList() {
               </div>
 
               <div className="form-grid">
+
                 {/* CANDIDATE NAME */}
 
                 <div className="form-group">
@@ -2114,26 +2384,6 @@ export default function EnquiryList() {
                     name="city"
                     value={
                       form.city ||
-                      ""
-                    }
-                    onChange={
-                      change
-                    }
-                  />
-                </div>
-
-                {/* BRANCH */}
-
-                <div className="form-group">
-                  <label>
-                    Branch
-                  </label>
-
-                  <input
-                    type="text"
-                    name="branch"
-                    value={
-                      form.branch ||
                       ""
                     }
                     onChange={
@@ -2244,33 +2494,52 @@ export default function EnquiryList() {
                   </select>
                 </div>
 
-                {/* TYPE */}
+                {/* =================================================
+                    TYPE - EDIT FORM
+
+                    IMPORTANT:
+                    Uses `editTypes`, NOT `types`.
+
+                    Therefore the Edit form always shows:
+
+                    Students
+                    Freshers
+                    Experience in Non IT
+                    Experience in IT
+                    Career Gap
+                    Others
+
+                    + custom Types
+                ================================================= */}
 
                 <div className="form-group">
                   <label>
-                    Type
+                    Type{" "}
+                    <span
+                      style={{
+                        color:
+                          "red",
+                      }}
+                    >
+                      *
+                    </span>
                   </label>
 
                   <select
                     name="type"
-                    value={
-                      form.type ||
-                      ""
-                    }
+                    value={normalizeTypeValue(
+                      form.type
+                    )}
                     onChange={
                       change
                     }
-                    disabled={
-                      typesLoading
-                    }
+                    required
                   >
                     <option value="">
-                      {typesLoading
-                        ? "Loading Types..."
-                        : "Select Type"}
+                      Select Type
                     </option>
 
-                    {types.map(
+                    {editTypes.map(
                       (item) => (
                         <option
                           key={
@@ -2286,38 +2555,23 @@ export default function EnquiryList() {
                         </option>
                       )
                     )}
-
-                    {form.type &&
-                      !types.includes(
-                        form.type
-                      ) && (
-                        <option
-                          value={
-                            form.type
-                          }
-                        >
-                          {
-                            form.type
-                          }
-                        </option>
-                      )}
                   </select>
 
-                  {typesLoading && (
-                    <small
-                      style={{
-                        display:
-                          "block",
-                        marginTop:
-                          "5px",
-                        opacity:
-                          0.7,
-                      }}
-                    >
-                      Loading latest
-                      Type data...
-                    </small>
-                  )}
+                  <small
+                    style={{
+                      display:
+                        "block",
+                      marginTop:
+                        "5px",
+                      opacity:
+                        0.7,
+                    }}
+                  >
+                    Select from the
+                    standard Types or
+                    an existing custom
+                    Type.
+                  </small>
                 </div>
 
                 {/* FOLLOW-UP DATE */}
