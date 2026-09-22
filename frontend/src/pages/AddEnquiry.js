@@ -480,13 +480,13 @@ export default function AddEnquiry() {
 
           {/* ADMIN */}
 
-          <Select
+          {/* <Select
             name="admin"
             label="Admin"
             value={form.admin}
             onChange={change}
             options={admins}
-          />
+          /> */}
 
           {/* ENQUIRY DATE */}
 
@@ -541,12 +541,12 @@ export default function AddEnquiry() {
             value={form.type}
             onChange={change}
             options={[
-              "Experience",
               "Students",
               "Freshers",
               "Experience in Non IT",
               "Experience in IT",
               "Career Gap",
+              "Others"
             ]}
           />
         </div>
@@ -582,7 +582,7 @@ export default function AddEnquiry() {
           />
 
           {/* ==================================================
-              COMMENTS / LAST DISCUSSION
+              COMMENTS / LAST DISCUSSION 
           ================================================== */}
 
           <div className="form-group full">
