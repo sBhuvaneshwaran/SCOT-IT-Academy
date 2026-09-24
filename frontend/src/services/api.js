@@ -961,69 +961,108 @@ export const enquiryApi = {
  */
 
 export const studentApi = {
-  list: (params) => {
+  // ====================================================
+  // LIST STUDENTS
+  // ====================================================
+
+  list: (params = {}) => {
     if (!useDummyData) {
-      return api.get(
-        "/students/",
-        { params }
-      );
+      return api.get("/students/", {
+        params,
+      });
     }
 
     return Promise.resolve({
-      data: clone(
-        dummyData.students
-      ),
+      data: clone(dummyData.students),
     });
   },
+
+  // ====================================================
+  // SESSION STUDENTS
+  // ====================================================
+  // Uses the existing /students/ API.
+  //
+  // Example:
+  // /api/students/?year=2026&month=9
+  //
+  // The React page also filters joinDate locally,
+  // so this continues working even if the backend
+  // does not yet process year/month parameters.
+  // ====================================================
+
+  session: (year, month) => {
+    const selectedYear = Number(year);
+    const selectedMonth = Number(month);
+
+    if (
+      !selectedYear ||
+      !selectedMonth ||
+      selectedMonth < 1 ||
+      selectedMonth > 12
+    ) {
+      return Promise.reject(
+        new Error("Valid year and month are required.")
+      );
+    }
+
+    if (!useDummyData) {
+      return api.get("/students/", {
+        params: {
+          year: selectedYear,
+          month: selectedMonth,
+        },
+      });
+    }
+
+    const students = clone(
+      dummyData.students || []
+    );
+
+    return Promise.resolve({
+      data: students,
+    });
+  },
+
+  // ====================================================
+  // STUDENT DETAIL
+  // ====================================================
 
   detail: (id) => {
     if (!useDummyData) {
-      return api.get(
-        `/students/${id}/`
-      );
+      return api.get(`/students/${id}/`);
     }
 
-    const student =
-      dummyData.students.find(
-        (row) =>
-          String(row.id) ===
-          String(id)
-      );
+    const student = dummyData.students.find(
+      (row) =>
+        String(row.id) === String(id)
+    );
 
     return Promise.resolve({
-      data: clone(
-        student || {}
-      ),
+      data: clone(student || {}),
     });
   },
+
+  // ====================================================
+  // CREATE STUDENT
+  // ====================================================
 
   create: async (data) => {
     if (!useDummyData) {
       const payload = {
         ...data,
 
-        status: "Joined",
+        status: data.status || "Active",
 
         paidFee:
-          Number(
-            data?.paidFee
-          ) || 0,
+          Number(data?.paidFee) || 0,
 
         balanceFee:
-          Number(
-            data?.balanceFee
-          ) || 0,
+          Number(data?.balanceFee) || 0,
 
         totalFee:
-          Number(
-            data?.totalFee
-          ) ||
-          (Number(
-            data?.paidFee
-          ) || 0) +
-            (Number(
-              data?.balanceFee
-            ) || 0),
+          Number(data?.totalFee) ||
+          (Number(data?.paidFee) || 0) +
+            (Number(data?.balanceFee) || 0),
       };
 
       return api.post(
@@ -1033,21 +1072,14 @@ export const studentApi = {
     }
 
     const paidFee =
-      Number(
-        data?.paidFee
-      ) || 0;
+      Number(data?.paidFee) || 0;
 
     const balanceFee =
-      Number(
-        data?.balanceFee
-      ) || 0;
+      Number(data?.balanceFee) || 0;
 
     const totalFee =
-      Number(
-        data?.totalFee
-      ) ||
-      paidFee +
-        balanceFee;
+      Number(data?.totalFee) ||
+      paidFee + balanceFee;
 
     const student = {
       ...data,
@@ -1059,90 +1091,40 @@ export const studentApi = {
       status: "Joined",
 
       paidFee,
-
       balanceFee,
-
       totalFee,
     };
 
-    dummyData.students.push(
-      student
-    );
-
-    dummyData.enquiries.push({
-      id: nextId(
-        dummyData.enquiries
-      ),
-
-      admin:
-        data?.admin ||
-        "Admin",
-
-      candidate_name:
-        student.name || "",
-
-      mobile:
-        student.mobile || "",
-
-      city:
-        student.city || "",
-
-      category:
-        student.category || "",
-
-      course:
-        student.course || "",
-
-      status: "Joined",
-
-      next_followup_date:
-        student.dueDate ||
-        student.due_date ||
-        "",
-
-      comments:
-        "Added from Students page.",
-    });
+    dummyData.students.push(student);
 
     persistDummyData();
 
     return Promise.resolve({
-      data: clone(
-        student
-      ),
+      data: clone(student),
     });
   },
 
-  update: async (
-    id,
-    data
-  ) => {
+  // ====================================================
+  // UPDATE STUDENT
+  // ====================================================
+
+  update: async (id, data) => {
     if (!useDummyData) {
       const payload = {
         ...data,
 
-        status: "Joined",
+        status: data.status || "Active",
 
         paidFee:
-          Number(
-            data?.paidFee
-          ) || 0,
+          Number(data?.paidFee) || 0,
 
         balanceFee:
-          Number(
-            data?.balanceFee
-          ) || 0,
+          Number(data?.balanceFee) || 0,
 
         totalFee:
-          Number(
-            data?.totalFee
-          ) ||
-          (Number(
-            data?.paidFee
-          ) || 0) +
-            (Number(
-              data?.balanceFee
-            ) || 0),
+          Number(data?.totalFee) ||
+          (Number(data?.paidFee) || 0) +
+            (Number(data?.balanceFee) || 0),
       };
 
       return api.patch(
@@ -1160,33 +1142,22 @@ export const studentApi = {
 
     if (index === -1) {
       return Promise.reject(
-        new Error(
-          "Student not found."
-        )
+        new Error("Student not found.")
       );
     }
 
     const oldStudent =
-      dummyData.students[
-        index
-      ];
+      dummyData.students[index];
 
     const paidFee =
-      Number(
-        data?.paidFee
-      ) || 0;
+      Number(data?.paidFee) || 0;
 
     const balanceFee =
-      Number(
-        data?.balanceFee
-      ) || 0;
+      Number(data?.balanceFee) || 0;
 
     const totalFee =
-      Number(
-        data?.totalFee
-      ) ||
-      paidFee +
-        balanceFee;
+      Number(data?.totalFee) ||
+      paidFee + balanceFee;
 
     const updatedStudent = {
       ...oldStudent,
@@ -1197,82 +1168,23 @@ export const studentApi = {
       status: "Joined",
 
       paidFee,
-
       balanceFee,
-
       totalFee,
     };
 
-    dummyData.students[
-      index
-    ] = updatedStudent;
-
-    const enquiryIndex =
-      dummyData.enquiries.findIndex(
-        (row) =>
-          String(
-            row.candidate_name ||
-              ""
-          )
-            .trim()
-            .toLowerCase() ===
-            String(
-              oldStudent.name ||
-                ""
-            )
-              .trim()
-              .toLowerCase() &&
-          String(
-            row.mobile || ""
-          ) ===
-            String(
-              oldStudent.mobile ||
-                ""
-            )
-      );
-
-    if (
-      enquiryIndex >= 0
-    ) {
-      dummyData.enquiries[
-        enquiryIndex
-      ] = {
-        ...dummyData.enquiries[
-          enquiryIndex
-        ],
-
-        candidate_name:
-          updatedStudent.name,
-
-        mobile:
-          updatedStudent.mobile,
-
-        city:
-          updatedStudent.city,
-
-        category:
-          updatedStudent.category,
-
-        course:
-          updatedStudent.course,
-
-        status: "Joined",
-
-        next_followup_date:
-          updatedStudent.dueDate ||
-          updatedStudent.due_date ||
-          "",
-      };
-    }
+    dummyData.students[index] =
+      updatedStudent;
 
     persistDummyData();
 
     return Promise.resolve({
-      data: clone(
-        updatedStudent
-      ),
+      data: clone(updatedStudent),
     });
   },
+
+  // ====================================================
+  // DELETE STUDENT
+  // ====================================================
 
   delete: (id) => {
     if (!useDummyData) {
@@ -1281,47 +1193,12 @@ export const studentApi = {
       );
     }
 
-    const student =
-      dummyData.students.find(
-        (row) =>
-          String(row.id) ===
-          String(id)
-      );
-
     dummyData.students =
       dummyData.students.filter(
         (row) =>
           String(row.id) !==
           String(id)
       );
-
-    if (student) {
-      dummyData.enquiries =
-        dummyData.enquiries.filter(
-          (row) =>
-            !(
-              String(
-                row.candidate_name ||
-                  ""
-              )
-                .trim()
-                .toLowerCase() ===
-                String(
-                  student.name ||
-                    ""
-                )
-                  .trim()
-                  .toLowerCase() &&
-              String(
-                row.mobile || ""
-              ) ===
-                String(
-                  student.mobile ||
-                    ""
-                )
-            )
-        );
-    }
 
     persistDummyData();
 
@@ -1330,6 +1207,32 @@ export const studentApi = {
         deleted: true,
       },
     });
+  },
+
+  // ====================================================
+  // NEXT STUDENT ID
+  // ====================================================
+  // Returns the next available Student ID (e.g. SCT001)
+  // ====================================================
+
+  nextId: () => {
+    if (!useDummyData) {
+      return api.get("/students/next-id/");
+    }
+
+    // Dummy mode: calculate from local students
+    const students = dummyData.students || [];
+    let maxNum = 0;
+    students.forEach((s) => {
+      const sid = String(s.studentId || s.student_id || s.id || "");
+      const match = sid.match(/^SCT(\d+)$/i);
+      if (match) {
+        maxNum = Math.max(maxNum, parseInt(match[1], 10));
+      }
+    });
+    const nextNum = maxNum + 1;
+    const nextStudentId = `SCT${String(nextNum).padStart(3, "0")}`;
+    return Promise.resolve({ data: { nextId: nextStudentId } });
   },
 };
 

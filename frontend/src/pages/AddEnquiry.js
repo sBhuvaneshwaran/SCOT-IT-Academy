@@ -26,12 +26,6 @@ const initialForm = {
   referred_by: "",
 };
 
-
-// ======================================================
-// CURRENT YEAR
-// ======================================================
-
-
 // ======================================================
 // DATE ONLY
 // HTML DATE INPUT REQUIRES YYYY-MM-DD
@@ -366,11 +360,6 @@ export default function AddEnquiry() {
         ).trim(),
       };
 
-      // console.log(
-      //   "Saving enquiry payload:",
-      //   payload
-      // );
-
       // ----------------------------------------------
       // API CREATE
       // ----------------------------------------------
@@ -381,6 +370,7 @@ export default function AddEnquiry() {
       // Cache type in localStorage so it
       // shows in EnquiryList even before
       // backend is redeployed with type column
+
       const newId =
         result?.data?.id ||
         result?.data?.insertId;
@@ -392,8 +382,10 @@ export default function AddEnquiry() {
               "scot_it_enquiry_types"
             ) || "{}"
           );
+
           cache[String(newId)] =
             String(payload.type).trim();
+
           localStorage.setItem(
             "scot_it_enquiry_types",
             JSON.stringify(cache)
@@ -546,7 +538,7 @@ export default function AddEnquiry() {
               "Experience in Non IT",
               "Experience in IT",
               "Career Gap",
-              "Others"
+              "Others",
             ]}
           />
         </div>
@@ -582,7 +574,7 @@ export default function AddEnquiry() {
           />
 
           {/* ==================================================
-              COMMENTS / LAST DISCUSSION 
+              COMMENTS / LAST DISCUSSION
           ================================================== */}
 
           <div className="form-group full">
@@ -597,22 +589,14 @@ export default function AddEnquiry() {
               placeholder="Enter last discussion details..."
               rows={5}
 
-              /*
-               * Grammarly protection.
-               * These attributes do NOT affect React.
-               */
+              /* Grammarly protection */
               data-grammarly="false"
               data-gr-ext-disabled="true"
               data-enable-grammarly="false"
 
-              /*
-               * Prevent browser spell checking.
-               */
+              /* Prevent browser spell checking */
               spellCheck={false}
 
-              /*
-               * Normal React textarea behavior.
-               */
               autoComplete="off"
             />
           </div>
@@ -653,7 +637,7 @@ export default function AddEnquiry() {
               "Low",
               "Hold",
               "Negative",
-              "Joined",
+              "Completed",
             ]}
           />
 

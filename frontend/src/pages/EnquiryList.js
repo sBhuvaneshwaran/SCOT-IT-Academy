@@ -2634,7 +2634,7 @@ export default function EnquiryList() {
                       "Low",
                       "Hold",
                       "Negative",
-                      "Joined",
+                      "Completed",
                     ].map(
                       (item) => (
                         <option
