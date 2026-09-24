@@ -217,7 +217,6 @@ const normalize = (
       paidFee
     );
 
-  // REAL DATABASE ID
   const databaseId =
     student.id ??
     student.databaseId ??
@@ -226,10 +225,8 @@ const normalize = (
   return {
     ...student,
 
-    // REAL DATABASE ID
     id: databaseId,
 
-    // DISPLAY ID
     displayStudentId:
       student.displayStudentId ||
       "",
@@ -398,6 +395,11 @@ const normalizeCategories = (
 // ======================================================
 // STATUS STYLE
 // ======================================================
+// ACTIVE  = YELLOW
+// INACTIVE = RED
+// CLOSED  = GREEN
+// PLACED  = BLUE
+// ======================================================
 
 const getStatusStyle = (
   status
@@ -405,47 +407,47 @@ const getStatusStyle = (
   const normalized =
     normalizeStatus(status);
 
+  // ACTIVE - YELLOW
   if (
     normalized ===
     "Active"
   ) {
     return {
-      background:
-        "#e8f7ee",
-      color:
-        "#1f7a45",
+      background: "#fff4cc",
+      color: "#8a6500",
+      border: "1px solid #f2cf55",
     };
   }
 
+  // INACTIVE - RED
   if (
     normalized ===
     "Inactive"
   ) {
     return {
-      background:
-        "#f1f1f1",
-      color:
-        "#666666",
+      background: "#fde2e2",
+      color: "#b42318",
+      border: "1px solid #f5a3a3",
     };
   }
 
+  // CLOSED - GREEN
   if (
     normalized ===
     "Closed"
   ) {
     return {
-      background:
-        "#fdecec",
-      color:
-        "#b42318",
+      background: "#dff6e7",
+      color: "#16703c",
+      border: "1px solid #8ed3a8",
     };
   }
 
+  // PLACED - BLUE
   return {
-    background:
-      "#eaf2ff",
-    color:
-      "#175cd3",
+    background: "#eaf2ff",
+    color: "#175cd3",
+    border: "1px solid #a8c7fa",
   };
 };
 
@@ -454,6 +456,7 @@ const getStatusStyle = (
 // ======================================================
 
 export default function Students() {
+
   // ====================================================
   // STUDENTS
   // ====================================================
@@ -1085,10 +1088,6 @@ export default function Students() {
     try {
       setExportingExcel(true);
 
-      // ================================================
-      // EXCEL DATA
-      // ================================================
-
       const excelData =
         allStudentsForExcel.map(
           (student) => {
@@ -1161,10 +1160,6 @@ export default function Students() {
           }
         );
 
-      // ================================================
-      // CREATE WORKBOOK
-      // ================================================
-
       const worksheet =
         XLSX.utils.json_to_sheet(
           excelData
@@ -1179,70 +1174,28 @@ export default function Students() {
         "All Students"
       );
 
-      // ================================================
-      // COLUMN WIDTHS
-      // ================================================
-
       worksheet["!cols"] = [
-        {
-          wch: 12,
-        },
-        {
-          wch: 12,
-        },
-        {
-          wch: 25,
-        },
-        {
-          wch: 30,
-        },
-        {
-          wch: 16,
-        },
-        {
-          wch: 30,
-        },
-        {
-          wch: 20,
-        },
-        {
-          wch: 28,
-        },
-        {
-          wch: 15,
-        },
-        {
-          wch: 15,
-        },
-        {
-          wch: 16,
-        },
-        {
-          wch: 15,
-        },
-        {
-          wch: 15,
-        },
-        {
-          wch: 22,
-        },
-        {
-          wch: 15,
-        },
+        { wch: 12 },
+        { wch: 12 },
+        { wch: 25 },
+        { wch: 30 },
+        { wch: 16 },
+        { wch: 30 },
+        { wch: 20 },
+        { wch: 28 },
+        { wch: 15 },
+        { wch: 15 },
+        { wch: 16 },
+        { wch: 15 },
+        { wch: 15 },
+        { wch: 22 },
+        { wch: 15 },
       ];
-
-      // ================================================
-      // FREEZE HEADER ROW
-      // ================================================
 
       worksheet["!freeze"] = {
         xSplit: 0,
         ySplit: 1,
       };
-
-      // ================================================
-      // FILE NAME
-      // ================================================
 
       const now =
         new Date();
@@ -1262,10 +1215,6 @@ export default function Students() {
 
       const fileName =
         `SCOT-IT-Academy-All-Students-${year}-${month}-${day}.xlsx`;
-
-      // ================================================
-      // DOWNLOAD EXCEL
-      // ================================================
 
       XLSX.writeFile(
         workbook,
@@ -2049,9 +1998,7 @@ export default function Students() {
           </select>
         </div>
 
-        {/* ==============================================
-            DOWNLOAD CURRENT MONTH CSV
-        ============================================== */}
+        {/* DOWNLOAD CURRENT MONTH CSV */}
 
         <button
           type="button"
@@ -2077,9 +2024,7 @@ export default function Students() {
           {selectedYear}
         </button>
 
-        {/* ==============================================
-            EXPORT ALL STUDENTS EXCEL
-        ============================================== */}
+        {/* EXPORT ALL STUDENTS EXCEL */}
 
         <button
           type="button"
@@ -2262,6 +2207,10 @@ export default function Students() {
                             "-"}
                         </td>
 
+                        {/* ==================================
+                            UPDATED STATUS COLOR
+                        ================================== */}
+
                         <td>
                           <span
                             style={{
@@ -2269,7 +2218,7 @@ export default function Students() {
                                 "inline-block",
 
                               padding:
-                                "5px 10px",
+                                "6px 12px",
 
                               borderRadius:
                                 "999px",
@@ -2278,13 +2227,22 @@ export default function Students() {
                                 "12px",
 
                               fontWeight:
-                                600,
+                                700,
+
+                              minWidth:
+                                "75px",
+
+                              textAlign:
+                                "center",
 
                               background:
                                 statusStyle.background,
 
                               color:
                                 statusStyle.color,
+
+                              border:
+                                statusStyle.border,
                             }}
                           >
                             {status}
