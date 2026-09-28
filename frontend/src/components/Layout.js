@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { NavLink, Outlet, useNavigate, useLocation } from "react-router-dom";
-import { dashboardApi, studentApi } from "../services/api";
+import { dashboardApi, studentApi, settingsApi } from "../services/api";
 
 const menus = (user) => [
   ["dashboard","⌂","Dashboard"],
@@ -11,13 +11,27 @@ const menus = (user) => [
   ["reports","▥","Reports"],
   ...(user?.role?.toLowerCase() === "owner" ? [["admins","♙","Admins"]] : []),
   ["categories","▦","Categories"],
-  ["refer-by","↗","Refer By"],
   // ["settings","⚙","Settings"]
   ...(user?.role?.toLowerCase() === "owner" ? [["settings","⚙","Settings"]] : []),
 ];
 
 export default function Layout({user}) {
   const [collapsed,setCollapsed] = useState(false);
+  const [mobile, setMobile] = useState(() => window.matchMedia("(max-width: 768px)").matches);
+  useEffect(() => {
+    const query = window.matchMedia("(max-width: 768px)");
+    const update = () => setMobile(query.matches);
+    query.addEventListener("change", update);
+    return () => query.removeEventListener("change", update);
+  }, []);
+  useEffect(() => {
+    if (!mobile || !collapsed) return;
+    const previous = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const close = event => { if (event.key === "Escape") setCollapsed(false); };
+    document.addEventListener("keydown", close);
+    return () => { document.body.style.overflow = previous; document.removeEventListener("keydown", close); };
+  }, [mobile, collapsed]);
   const [notificationsOpen,setNotificationsOpen] = useState(false);
   const [notifications,setNotifications] = useState([]);
   const navigate = useNavigate();
@@ -69,8 +83,13 @@ export default function Layout({user}) {
 
     Promise.allSettled([
       dashboardApi.notifications(),
-      studentApi.list()
-    ]).then(([notificationResult, studentResult]) => {
+      studentApi.list(),
+      settingsApi.get()
+    ]).then(([notificationResult, studentResult, settingsResult]) => {
+      if (settingsResult.status === "fulfilled" && settingsResult.value.data?.followUpReminder === false) {
+        setNotifications([]);
+        return;
+      }
       const notificationRows = notificationResult.status === "fulfilled"
         ? (notificationResult.value?.data?.results || notificationResult.value?.data || [])
         : [];
@@ -116,7 +135,7 @@ export default function Layout({user}) {
 
       setNotifications(overdue);
     }).catch(() => setNotifications([]));
-  }, []);
+  }, [location.pathname]);
 
   useEffect(() => {
     // Close sidebar on route change (for mobile view)
@@ -131,7 +150,8 @@ export default function Layout({user}) {
 
   return <div className={`app ${collapsed ? "collapsed" : ""}`}>
     <div className="sidebar-overlay" onClick={() => setCollapsed(false)} />
-    <aside className="sidebar">
+    <aside id="main-navigation" className="sidebar" inert={mobile && !collapsed ? true : undefined}>
+      <button className="sidebar-close" aria-label="Close navigation" onClick={() => setCollapsed(false)}>×</button>
       <div className="logo"><h2>SCOT</h2><p>IT ACADEMY</p></div>
       <nav>{menuList.map(([path,icon,label]) =>
         <NavLink key={path} to={`/${path}`} className="menu-item">
@@ -141,13 +161,13 @@ export default function Layout({user}) {
     </aside>
     <main className="main">
       <header className="topbar">
-        <div className="mobile-title"><button className="secondary menu-toggle" onClick={()=>setCollapsed(!collapsed)}>☰</button>
+        <div className="mobile-title"><button className="secondary menu-toggle" aria-label="Toggle navigation" aria-expanded={collapsed} aria-controls="main-navigation" onClick={()=>setCollapsed(!collapsed)}>☰</button>
           <div><h1>{title}</h1><p>SCOT IT Academy Enquiry Follow-up System</p></div>
         </div>
         <div className="profile-wrap">
           <div className="notification-wrap">
-            <button className="notification-btn" aria-label="Open overdue fee notifications" onClick={()=>setNotificationsOpen(!notificationsOpen)}>🔔{notifications.length > 0 && <span>{notifications.length}</span>}</button>
-            {notificationsOpen && <div className="notification-menu"><div className="notification-header"><strong>Overdue fees</strong><div><small>{notifications.length} students</small><button className="notification-close" aria-label="Close notifications" onClick={()=>{ setNotifications([]); setNotificationsOpen(false); }}>X</button></div></div>{notifications.length === 0 ? <p className="notification-empty">No overdue fee notifications</p> : notifications.map((item,index)=><div className="notification-item" key={item.id || item.mobile || index}><strong>{item.name || item.candidate_name}</strong><small>{item.mobile} - Due {item.due_date || item.next_followup_date || "today"}</small><div><span>Pending: {item.pending_fee || item.pendingFee || "Not recorded"}</span><span>Paid: {item.paid_fee || item.paidFee || "Not recorded"}</span></div></div>)}</div>}
+            <button className="notification-btn" aria-label="Open overdue fee notifications" onClick={()=>setNotificationsOpen(!notificationsOpen)}><svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4" /></svg>{notifications.length > 0 && <span>{notifications.length}</span>}</button>
+            {notificationsOpen && <div className="notification-menu"><div className="notification-header"><strong>Overdue fees</strong><div><small>{notifications.length} students</small><button className="notification-close" aria-label="Close notifications" onClick={()=>setNotificationsOpen(false)}>X</button></div></div>{notifications.length === 0 ? <p className="notification-empty">No overdue fee notifications</p> : notifications.map((item,index)=><div className="notification-item" key={item.id || item.mobile || index}><strong>{item.name || item.candidate_name}</strong><small>{item.mobile} - Due {item.due_date || item.next_followup_date || "today"}</small><div><span>Pending: {item.pending_fee || item.pendingFee || "Not recorded"}</span><span>Paid: {item.paid_fee || item.paidFee || "Not recorded"}</span></div></div>)}</div>}
           </div>
           <div className="profile"><div className="avatar">B</div><div><strong>{user.name}</strong><small>{user.role}</small></div></div>
           <button className="secondary logout-btn" onClick={logout}>Logout</button>

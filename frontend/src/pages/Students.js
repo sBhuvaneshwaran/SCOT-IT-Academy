@@ -1,3 +1,4 @@
+import { ResponsiveTable } from "../components/Ui";
 import React, {
   useEffect,
   useRef,
@@ -586,25 +587,12 @@ export default function Students() {
   // YEARS
   // ====================================================
 
-  const START_YEAR = 2026;
-
-  const currentYear =
-    new Date().getFullYear();
-
-  const yearOptions =
-    Array.from(
-      {
-        length: Math.max(
-          1,
-          currentYear -
-            START_YEAR +
-            1
-        ),
-      },
-      (_, index) =>
-        START_YEAR +
-        index
-    );
+  const currentYear = new Date().getFullYear();
+  const recordedYears = students.map(student => Number(String(student.joinDate || "").slice(0, 4)))
+    .filter(year => Number.isInteger(year) && year >= 1900 && year <= 9999);
+  const firstYear = Math.min(2026, currentYear, ...recordedYears);
+  const lastYear = Math.max(currentYear, ...recordedYears);
+  const yearOptions = Array.from({ length: lastYear - firstYear + 1 }, (_, index) => firstYear + index);
 
   // ====================================================
   // LOAD CATEGORIES
@@ -790,12 +778,13 @@ export default function Students() {
         (student, index) => ({
           ...student,
 
-          displayStudentId:
-            (page - 1) * 10 +
-            index +
-            1,
+          displayStudentId: student.studentId || student.id,
         })
       );
+
+  useEffect(() => {
+    setPage(current => Math.min(current, Math.max(1, Math.ceil(filteredStudents.length / 10))));
+  }, [filteredStudents.length]);
 
   // ====================================================
   // ALL STUDENTS FOR EXCEL
@@ -816,8 +805,7 @@ export default function Students() {
         (student, index) => ({
           ...student,
 
-          excelStudentId:
-            index + 1,
+          excelStudentId: student.studentId || student.id,
         })
       );
 
@@ -1884,6 +1872,17 @@ export default function Students() {
     setMessage("");
   }
 
+  useEffect(() => {
+    if (!formOpen && !selected) return;
+    const previous = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const onKey = event => {
+      if (event.key === "Escape" && !saving) { setFormOpen(false); setSelected(null); }
+    };
+    document.addEventListener("keydown", onKey);
+    return () => { document.body.style.overflow = previous; document.removeEventListener("keydown", onKey); };
+  }, [formOpen, selected, saving]);
+
   // ====================================================
   // UI
   // ====================================================
@@ -1923,11 +1922,11 @@ export default function Students() {
             marginBottom: 0,
           }}
         >
-          <label>
+          <label htmlFor="student-year">
             Year
           </label>
 
-          <select
+          <select id="student-year"
             value={
               selectedYear
             }
@@ -1961,11 +1960,11 @@ export default function Students() {
             marginBottom: 0,
           }}
         >
-          <label>
+          <label htmlFor="student-month">
             Month
           </label>
 
-          <select
+          <select id="student-month"
             value={
               selectedMonth
             }
@@ -2048,7 +2047,7 @@ export default function Students() {
         >
           {exportingExcel
             ? "Exporting..."
-            : "📊 Export All Excel"}
+            : "Export All Excel"}
         </button>
       </div>
 
@@ -2072,7 +2071,7 @@ export default function Students() {
         }
       >
         <div className="students-table-wrapper">
-          <table className="students-table">
+          <ResponsiveTable className="students-table">
             <thead>
               <tr>
                 <th>
@@ -2255,39 +2254,42 @@ export default function Students() {
                               type="button"
                               className="icon-btn view-action"
                               title="View"
+                              aria-label={`View ${student.name}`}
                               onClick={() =>
                                 openView(
                                   student
                                 )
                               }
                             >
-                              👁
+                              View
                             </button>
 
                             <button
                               type="button"
                               className="icon-btn edit-action"
                               title="Edit"
+                              aria-label={`Edit ${student.name}`}
                               onClick={() =>
                                 openEdit(
                                   student
                                 )
                               }
                             >
-                              ✎
+                              Edit
                             </button>
 
                             <button
                               type="button"
                               className="icon-btn delete-btn"
                               title="Delete"
+                              aria-label={`Delete ${student.name}`}
                               onClick={() =>
                                 remove(
                                   student
                                 )
                               }
                             >
-                              🗑
+                              Delete
                             </button>
                           </div>
                         </td>
@@ -2314,12 +2316,13 @@ export default function Students() {
                 </tr>
               )}
             </tbody>
-          </table>
+          </ResponsiveTable>
         </div>
 
         <Pagination
           page={page}
           setPage={setPage}
+          perPage={10}
           total={
             filteredStudents.length
           }
@@ -2355,6 +2358,7 @@ export default function Students() {
         >
           <form
             className="modal edit-modal students-modal"
+            role="dialog" aria-modal="true" aria-label={editingStudent ? "Edit student" : "Add student"}
             onSubmit={
               addStudent
             }
@@ -2381,7 +2385,7 @@ export default function Students() {
 
               <button
                 type="button"
-                className="modal-close"
+                className="modal-close" aria-label="Close student form"
                 onClick={
                   closeForm
                 }
@@ -2395,12 +2399,12 @@ export default function Students() {
               {/* STUDENT ID */}
 
               <div className="form-group">
-                <label>
+                <label htmlFor="student-studentId">
                   Student ID
                 </label>
 
                 <input
-                  name="studentId"
+                  name="studentId" id="student-studentId"
                   value={
                     form.studentId ??
                     ""
@@ -2446,12 +2450,12 @@ export default function Students() {
               {/* NAME */}
 
               <div className="form-group">
-                <label>
+                <label htmlFor="student-name">
                   Student Name
                 </label>
 
                 <input
-                  name="name"
+                  name="name" id="student-name"
                   value={
                     form.name ??
                     ""
@@ -2467,12 +2471,12 @@ export default function Students() {
               {/* COURSE */}
 
               <div className="form-group">
-                <label>
+                <label htmlFor="student-course">
                   Course
                 </label>
 
                 <input
-                  name="course"
+                  name="course" id="student-course"
                   value={
                     form.course ??
                     ""
@@ -2488,12 +2492,12 @@ export default function Students() {
               {/* MOBILE */}
 
               <div className="form-group">
-                <label>
+                <label htmlFor="student-mobile">
                   Mobile Number
                 </label>
 
                 <input
-                  name="mobile"
+                  name="mobile" id="student-mobile"
                   value={
                     form.mobile ??
                     ""
@@ -2508,12 +2512,12 @@ export default function Students() {
               {/* EMAIL */}
 
               <div className="form-group">
-                <label>
+                <label htmlFor="student-email">
                   Email
                 </label>
 
                 <input
-                  name="email"
+                  name="email" id="student-email"
                   value={
                     form.email ??
                     ""
@@ -2528,12 +2532,12 @@ export default function Students() {
               {/* CITY */}
 
               <div className="form-group">
-                <label>
+                <label htmlFor="student-city">
                   City
                 </label>
 
                 <input
-                  name="city"
+                  name="city" id="student-city"
                   value={
                     form.city ??
                     ""
@@ -2548,12 +2552,12 @@ export default function Students() {
               {/* TOTAL FEE */}
 
               <div className="form-group">
-                <label>
+                <label htmlFor="student-totalFee">
                   Total Fee
                 </label>
 
                 <input
-                  name="totalFee"
+                  name="totalFee" id="student-totalFee"
                   value={
                     form.totalFee ??
                     ""
@@ -2571,12 +2575,12 @@ export default function Students() {
               {/* PAID FEE */}
 
               <div className="form-group">
-                <label>
+                <label htmlFor="student-paidFee">
                   Paid Fee
                 </label>
 
                 <input
-                  name="paidFee"
+                  name="paidFee" id="student-paidFee"
                   value={
                     form.paidFee ??
                     ""
@@ -2598,12 +2602,12 @@ export default function Students() {
               {/* BALANCE FEE */}
 
               <div className="form-group">
-                <label>
+                <label htmlFor="student-balanceFee">
                   Balance Fee
                 </label>
 
                 <input
-                  name="balanceFee"
+                  name="balanceFee" id="student-balanceFee"
                   value={calculateBalanceFee(
                     form.totalFee,
                     form.paidFee
@@ -2642,12 +2646,12 @@ export default function Students() {
               {/* CATEGORY */}
 
               <div className="form-group">
-                <label>
+                <label htmlFor="student-category">
                   Category
                 </label>
 
                 <select
-                  name="category"
+                  name="category" id="student-category"
                   value={
                     form.category ||
                     ""
@@ -2685,13 +2689,13 @@ export default function Students() {
               {/* DUE DATE */}
 
               <div className="form-group">
-                <label>
+                <label htmlFor="student-dueDate">
                   Due Date
                 </label>
 
                 <input
                   type="date"
-                  name="dueDate"
+                  name="dueDate" id="student-dueDate"
                   value={
                     form.dueDate ||
                     ""
@@ -2706,13 +2710,13 @@ export default function Students() {
               {/* JOIN DATE */}
 
               <div className="form-group">
-                <label>
+                <label htmlFor="student-joinDate">
                   Join Date
                 </label>
 
                 <input
                   type="date"
-                  name="joinDate"
+                  name="joinDate" id="student-joinDate"
                   value={
                     form.joinDate ||
                     ""
@@ -2732,12 +2736,12 @@ export default function Students() {
               {/* STATUS */}
 
               <div className="form-group">
-                <label>
+                <label htmlFor="student-status">
                   Status
                 </label>
 
                 <select
-                  name="status"
+                  name="status" id="student-status"
                   value={
                     form.status ||
                     "Active"
@@ -2836,6 +2840,7 @@ export default function Students() {
         >
           <div
             className="student-detail-content"
+            role="dialog" aria-modal="true" aria-label="Student details"
             onClick={(
               event
             ) =>

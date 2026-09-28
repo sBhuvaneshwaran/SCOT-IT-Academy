@@ -1,9 +1,9 @@
+import { REFERRED_BY_OPTIONS } from "../data/referralOptions";
 import React, { useEffect, useState } from "react";
 import {
   enquiryApi,
   categoryApi,
   adminApi,
-  referralApi,
 } from "../services/api";
 import { Panel } from "../components/Ui";
 
@@ -133,7 +133,6 @@ export default function AddEnquiry() {
 
   const [categories, setCategories] = useState([]);
   const [admins, setAdmins] = useState([]);
-  const [referrals, setReferrals] = useState([]);
 
   const [saving, setSaving] = useState(false);
 
@@ -209,45 +208,6 @@ export default function AddEnquiry() {
     }
 
     loadAdmins();
-
-    return () => {
-      mounted = false;
-    };
-  }, []);
-
-  // ====================================================
-  // LOAD REFERRALS
-  // ====================================================
-
-  useEffect(() => {
-    let mounted = true;
-
-    async function loadReferrals() {
-      try {
-        const response = await referralApi.list();
-
-        if (!mounted) {
-          return;
-        }
-
-        const values = getArray(response)
-          .map(getName)
-          .filter(Boolean);
-
-        setReferrals(values);
-      } catch (error) {
-        console.error(
-          "Referral loading error:",
-          error
-        );
-
-        if (mounted) {
-          setReferrals([]);
-        }
-      }
-    }
-
-    loadReferrals();
 
     return () => {
       mounted = false;
@@ -648,7 +608,7 @@ export default function AddEnquiry() {
             label="Referred By"
             value={form.referred_by}
             onChange={change}
-            options={referrals}
+            options={REFERRED_BY_OPTIONS}
           />
         </div>
 

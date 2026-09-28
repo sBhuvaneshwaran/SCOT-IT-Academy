@@ -1,3 +1,4 @@
+import { ResponsiveTable } from "../components/Ui";
 import React, {
   useCallback,
   useEffect,
@@ -2225,7 +2226,7 @@ export default function Dashboard() {
 
         <div className="table-scroll">
 
-          <table>
+          <ResponsiveTable>
 
             <thead>
 
@@ -2327,7 +2328,7 @@ export default function Dashboard() {
 
             </tbody>
 
-          </table>
+          </ResponsiveTable>
 
         </div>
 

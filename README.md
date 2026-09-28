@@ -73,7 +73,6 @@ Follow-ups
 Reports
 Admins
 Categories
-Refer By
 Settings
 
 The general design is:
@@ -90,7 +89,6 @@ The general design is:
 │ Reports       │                              │
 │ Admins        │                              │
 │ Categories    │                              │
-│ Refer By      │                              │
 │ Settings      │                              │
 │               │                              │
 └───────────────┴──────────────────────────────┘
@@ -542,11 +540,10 @@ Delete Admin
 
 Admin passwords are stored as bcrypt hashes when updated.
 
-17. Refer By
+17. Referred By options
 
-This page manages referral sources.
-
-For example:
+Referral sources are a fixed dropdown in Add Enquiry and Edit Enquiry.
+Both forms use REFERRED_BY_OPTIONS from frontend/src/data/referralOptions.js:
 
 Google
 Instagram
@@ -558,19 +555,9 @@ Walk-in
 Website
 Justdial
 
-When an enquiry comes in:
-
-Candidate: Arun
-Referred By: Google
-
-The system can therefore measure which sources generate enquiries.
-
-The enquiry database includes both:
-
-referred_by
-referral_contact
-
-fields.
+There is no separate Refer By management page. An enquiry's selected source
+is saved in its referred_by database field. Older records with custom sources
+keep their saved value when edited. Edit the shared constant to change defaults.
 
 18. Settings
 
@@ -831,7 +818,6 @@ SCOT IT Academy
 │   ├── Reports
 │   ├── Admins
 │   ├── Categories
-│   ├── Refer By
 │   └── Settings
 │
 └── backend/
