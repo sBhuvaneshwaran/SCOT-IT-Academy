@@ -13,7 +13,6 @@ import FollowUps from "./pages/FollowUps";
 import Reports from "./pages/Reports";
 import Admins from "./pages/Admins";
 import Categories from "./pages/Categories";
-import ReferBy from "./pages/ReferBy";
 import Settings from "./pages/Settings";
 
 const demoUser = { username: "owner", name: "SCOT IT Academy Owner", role: "Owner" };
@@ -60,7 +59,7 @@ export default function App() {
             <Route path="/admins" element={<Admins />} />
           </Route>
           <Route path="/categories" element={<Categories />} />
-          <Route path="/refer-by" element={<ReferBy />} />
+          <Route path="/refer-by" element={<Navigate to="/dashboard" replace />} />
           <Route element={<OwnerOnly />}>
             <Route path="/settings" element={<Settings />} />
           </Route>

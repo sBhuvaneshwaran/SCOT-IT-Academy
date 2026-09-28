@@ -227,6 +227,10 @@ function getNotificationsFromStudents(students) {
   const map = new Map();
 
   students.forEach((student) => {
+    const status = String(student.status || "").toLowerCase().trim();
+    if (status === "inactive" || status === "placed" || status === "closed") {
+      return;
+    }
     const paidFee = toNumber(student.paidFee ?? student.paid_fee, 0);
     const balanceFee = toNumber(student.balanceFee ?? student.balance_fee, 0);
     const dueDate = student.dueDate || student.due_date;
@@ -240,8 +244,9 @@ function getNotificationsFromStudents(students) {
       return;
     }
 
-    const now = new Date();
-    if (due >= now) {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    if (due >= today) {
       return;
     }
 
