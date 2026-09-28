@@ -9,9 +9,8 @@ const cors = require("cors");
 const jwt = require("jsonwebtoken");
 const bcrypt = require("bcryptjs");
 const dotenv = require("dotenv");
-const mysql = require("mysql2/promise");
 
-dotenv.config();
+dotenv.config({ path: require("path").join(__dirname, "../.env") });
 
 const app = express();
 
@@ -21,67 +20,18 @@ const app = express();
 
 const PORT = Number(process.env.PORT || 10000);
 
-const JWT_SECRET =
-  process.env.JWT_SECRET || "development-only-secret";
+const JWT_SECRET = process.env.JWT_SECRET;
+if (!JWT_SECRET) {
+  throw new Error("JWT_SECRET must be configured before starting the API.");
+}
 
 // ============================================================
 // DATABASE CONFIG
 // ============================================================
 
-function getDatabaseConfig() {
-  const connectionString =
-    process.env.DATABASE_URL ||
-    process.env.MYSQL_URL;
-
-  if (connectionString) {
-    const url = new URL(connectionString);
-
-    const sslRequired =
-      url.searchParams.get("ssl-mode") === "REQUIRED" ||
-      url.searchParams.get("ssl") === "true";
-
-    return {
-      host: url.hostname,
-      port: Number(url.port || 3306),
-      user: decodeURIComponent(url.username),
-      password: decodeURIComponent(url.password),
-      database: decodeURIComponent(
-        url.pathname.replace(/^\//, "")
-      ),
-      ssl: sslRequired
-        ? { rejectUnauthorized: false }
-        : undefined,
-    };
-  }
-
-  return {
-    host: process.env.DB_HOST || "localhost",
-    port: Number(process.env.DB_PORT || 3306),
-    user: process.env.DB_USER || "root",
-    password: process.env.DB_PASSWORD || "",
-    database:
-      process.env.DB_NAME || "student_management",
-    ssl:
-      String(process.env.DB_SSL).toLowerCase() === "true"
-        ? { rejectUnauthorized: false }
-        : undefined,
-  };
-}
-
-const DB_CONFIG = {
-  ...getDatabaseConfig(),
-
-  waitForConnections: true,
-  connectionLimit: 10,
-  dateStrings: true,
-  charset: "utf8mb4",
-};
-
-// ============================================================
-// DATABASE POOL
-// ============================================================
-
-const db = mysql.createPool(DB_CONFIG);
+const db = require("./database")();
+const { ensureOwner } = require("./owner-account");
+const { studentFees } = require("./student-fees");
 
 // ============================================================
 // HELPERS
@@ -188,33 +138,20 @@ function issueToken(user) {
 // AUTH MIDDLEWARE
 // ============================================================
 
-function auth(req, res, next) {
-  const header =
-    req.headers.authorization || "";
-
-  const token =
-    header.startsWith("Bearer ")
-      ? header.slice(7)
-      : "";
-
-  if (!token) {
-    return res.status(401).json({
-      message: "Unauthorized",
-    });
-  }
-
+async function auth(req, res, next) {
+  const header = req.headers.authorization || "";
+  let claims;
   try {
-    req.user = jwt.verify(
-      token,
-      JWT_SECRET
-    );
-
-    next();
-  } catch (error) {
-    return res.status(401).json({
-      message: "Invalid token",
-    });
+    claims = jwt.verify(header.startsWith("Bearer ") ? header.slice(7) : "", JWT_SECRET);
+  } catch {
+    return res.status(401).json({ message: "Invalid or expired session. Please log in again." });
   }
+  try {
+    const user = await first("SELECT id, username, name, role FROM users WHERE id=?", [claims.id]);
+    if (!user) return res.status(401).json({ message: "Account no longer exists. Please log in again." });
+    req.user = user;
+    next();
+  } catch (error) { next(error); }
 }
 
 // ============================================================
@@ -348,7 +285,7 @@ app.post(
         text(req.body?.username);
 
       const password =
-        req.body?.password || "";
+        typeof req.body?.password === "string" ? req.body.password : "";
 
       if (!username || !password) {
         return res.status(400).json({
@@ -415,179 +352,9 @@ app.post(
 // AUTH - SIGNUP / OWNER SETUP
 // ============================================================
 
-app.post(
-  "/api/auth/signup",
-  async (req, res, next) => {
-    try {
-      const name =
-        text(req.body?.name);
-
-      const username =
-        text(req.body?.username);
-
-      const password =
-        req.body?.password || "";
-
-      if (!name) {
-        return res.status(400).json({
-          message:
-            "Owner name is required.",
-        });
-      }
-
-      if (!username) {
-        return res.status(400).json({
-          message:
-            "Owner username is required.",
-        });
-      }
-
-      if (!password) {
-        return res.status(400).json({
-          message:
-            "Owner password is required.",
-        });
-      }
-
-      if (password.length < 6) {
-        return res.status(400).json({
-          message:
-            "Password must contain at least 6 characters.",
-        });
-      }
-
-      const usernameOwner =
-        await first(
-          `
-          SELECT id, role
-          FROM users
-          WHERE LOWER(username)=LOWER(?)
-          LIMIT 1
-          `,
-          [username]
-        );
-
-      if (
-        usernameOwner &&
-        usernameOwner.role !== "Owner"
-      ) {
-        return res.status(409).json({
-          message:
-            "This username is already used by an administrator.",
-        });
-      }
-
-      const owner =
-        await first(
-          `
-          SELECT *
-          FROM users
-          WHERE role='Owner'
-          ORDER BY id ASC
-          LIMIT 1
-          `
-        );
-
-      const passwordHash =
-        await bcrypt.hash(
-          password,
-          12
-        );
-
-      let ownerId;
-
-      if (owner) {
-        ownerId = owner.id;
-
-        await db.execute(
-          `
-          UPDATE users
-          SET
-            username=?,
-            password_hash=?,
-            name=?
-          WHERE id=?
-            AND role='Owner'
-          `,
-          [
-            username,
-            passwordHash,
-            name,
-            owner.id,
-          ]
-        );
-      } else {
-        const [result] =
-          await db.execute(
-            `
-            INSERT INTO users
-            (
-              username,
-              password_hash,
-              name,
-              role
-            )
-            VALUES (?, ?, ?, 'Owner')
-            `,
-            [
-              username,
-              passwordHash,
-              name,
-            ]
-          );
-
-        ownerId =
-          result.insertId;
-      }
-
-      const updatedOwner =
-        await first(
-          `
-          SELECT
-            id,
-            username,
-            name,
-            role
-          FROM users
-          WHERE id=?
-            AND role='Owner'
-          LIMIT 1
-          `,
-          [ownerId]
-        );
-
-      if (!updatedOwner) {
-        return res.status(500).json({
-          message:
-            "Owner account was not saved.",
-        });
-      }
-
-      const access =
-        issueToken(updatedOwner);
-
-      return res.json({
-        message:
-          "Owner account updated successfully.",
-        access,
-        user:
-          publicUser(updatedOwner),
-      });
-    } catch (error) {
-      if (
-        error?.code ===
-        "ER_DUP_ENTRY"
-      ) {
-        return res.status(409).json({
-          message:
-            "This username is already in use.",
-        });
-      }
-
-      next(error);
-    }
-  }
-);
+app.post("/api/auth/signup", (req, res) => {
+  res.status(403).json({ message: "Owner setup requires server access. Contact the academy owner." });
+});
 
 // ============================================================
 // AUTH - UPDATE OWNER USERNAME
@@ -986,45 +753,15 @@ app.post(
       const b =
         req.body || {};
 
-      const paid =
-        amount(
-          b.paidFee ??
-            b.paid_fee
-        );
+      const { paid, balance, total } = studentFees(b);
 
-      const balance =
-        amount(
-          b.balanceFee ??
-            b.balance_fee
-        );
-
-      const total =
-        amount(
-          b.totalFee ??
-            b.total_fee,
-          paid + balance
-        );
-
-      let studentId =
-        text(
-          b.studentId ??
-            b.student_id
-        );
-
-      if (!studentId || !/^SCOT-\d+/i.test(studentId)) {
-        try {
-          const [idRows] = await db.query(
-            `SELECT student_id FROM students WHERE student_id REGEXP '^SCOT-[0-9]+$' ORDER BY id DESC LIMIT 1`
-          );
-          let nextNum = 1;
-          if (idRows && idRows.length > 0) {
-            const match = String(idRows[0].student_id).match(/^SCOT-(\d+)$/i);
-            if (match) nextNum = parseInt(match[1], 10) + 1;
-          }
-          studentId = `SCOT-${String(nextNum).padStart(3, "0")}`;
-        } catch {
-          studentId = `SCOT-${String(Date.now()).slice(-3)}`;
-        }
+      let studentId = text(b.studentId ?? b.student_id);
+      if (!studentId) {
+        const row = await first(`
+          SELECT COALESCE(MAX(CAST(SUBSTRING(student_id, 6) AS UNSIGNED)), 0) AS lastNumber
+          FROM students WHERE student_id REGEXP '^SCOT-[0-9]+$'
+        `);
+        studentId = `SCOT-${String(Number(row.lastNumber) + 1).padStart(3, "0")}`;
       }
 
       const dueDate =
@@ -1183,26 +920,7 @@ app.patch(
       const b =
         req.body || {};
 
-      const paid =
-        amount(
-          b.paidFee ??
-            b.paid_fee ??
-            current.paid_fee
-        );
-
-      const balance =
-        amount(
-          b.balanceFee ??
-            b.balance_fee ??
-            current.balance_fee
-        );
-
-      const total =
-        amount(
-          b.totalFee ??
-            b.total_fee,
-          paid + balance
-        );
+      const { paid, balance, total } = studentFees(b, current);
 
       const studentId =
         text(
@@ -1289,6 +1007,10 @@ app.patch(
           b.status ??
             current.status
         ) || "Joined";
+
+      if (!studentId || !name || !mobile) {
+        return res.status(400).json({ message: "Student ID, name and mobile are required." });
+      }
 
       await db.execute(
         `
@@ -1395,6 +1117,23 @@ app.delete(
     }
   }
 );
+
+async function validateEnquiry(candidateName, mobile, excludeId = 0) {
+  if (!candidateName || !mobile) {
+    const error = new Error("Candidate name and mobile number are required.");
+    error.status = 400;
+    throw error;
+  }
+  const preference = await first("SELECT setting_value FROM settings WHERE setting_key='duplicateMobileCheck'");
+  if (preference?.setting_value !== false && preference?.setting_value !== "false") {
+    const duplicate = await first("SELECT id FROM enquiries WHERE mobile=? AND id<>? LIMIT 1", [mobile, excludeId]);
+    if (duplicate) {
+      const error = new Error("An enquiry with this mobile number already exists.");
+      error.status = 400;
+      throw error;
+    }
+  }
+}
 
 // ============================================================
 // ENQUIRIES - GET ALL
@@ -1572,6 +1311,8 @@ app.post(
             "Mobile number is required.",
         });
       }
+
+      await validateEnquiry(candidateName, mobile);
 
       const [result] =
         await db.execute(
@@ -1779,6 +1520,8 @@ app.patch(
             b.referredBy ??
             old.referred_by
         );
+
+      await validateEnquiry(candidateName, mobile, old.id);
 
       await db.execute(
         `
@@ -2687,7 +2430,6 @@ app.delete(
 app.get(
   "/api/admins",
   auth,
-  ownerOnly,
   async (req, res, next) => {
     try {
       const [rows] =
@@ -2734,7 +2476,7 @@ app.post(
         text(req.body?.username);
 
       const password =
-        text(req.body?.password);
+        typeof req.body?.password === "string" ? req.body.password : "";
 
       if (
         !name ||
@@ -2861,7 +2603,11 @@ app.patch(
         old.username;
 
       const password =
-        text(req.body?.password);
+        typeof req.body?.password === "string" ? req.body.password : "";
+
+      if (password && password.length < 6) {
+        return res.status(400).json({ message: "Password must contain at least 6 characters." });
+      }
 
       if (password) {
         await db.execute(
@@ -2975,7 +2721,7 @@ app.get(
 
             COALESCE(
               SUM(
-                LOWER(status)='joined'
+                LOWER(status) IN ('joined', 'active', 'inactive', 'closed', 'placed')
               ),
               0
             ) AS joinedStudents,
@@ -3132,7 +2878,7 @@ app.get(
             COUNT(*) AS totalStudents,
 
             COALESCE(
-              SUM(total_fee),
+              SUM(paid_fee),
               0
             ) AS totalRevenue,
 
@@ -3217,6 +2963,9 @@ app.get(
   auth,
   async (req, res, next) => {
     try {
+      const preference = await first("SELECT setting_value FROM settings WHERE setting_key='followUpReminder'");
+      if ((preference?.setting_value === false || preference?.setting_value === "false")) return res.json([]);
+
       const [rows] =
         await db.query(
           `
@@ -3230,12 +2979,12 @@ app.get(
             balance_fee AS balanceFee,
             total_fee AS totalFee,
             due_date AS dueDate,
+            balance_fee AS pending_fee,
             status
           FROM students
           WHERE due_date<CURDATE()
             AND balance_fee>0
-            AND (LOWER(COALESCE(status, 'Active')) IN ('active', 'joined') OR status IS NULL OR status = '')
-            AND LOWER(COALESCE(status, '')) NOT IN ('inactive', 'placed', 'closed')
+            AND LOWER(TRIM(COALESCE(status, ''))) IN ('active', 'joined', '')
           ORDER BY due_date
           `
         );
@@ -3277,6 +3026,7 @@ app.get(
             setting_key,
             setting_value
           FROM settings
+          WHERE setting_key IN ('academyName', 'email', 'branch', 'followUpReminder', 'duplicateMobileCheck')
           `
         );
 
@@ -3317,50 +3067,33 @@ app.get(
   }
 );
 
-// ============================================================
-// SETTINGS - UPDATE
-// ============================================================
-
-app.patch(
-  "/api/settings",
-  auth,
-  async (req, res, next) => {
-    try {
-      for (
-        const [
-          key,
-          value,
-        ] of Object.entries(
-          req.body || {}
-        )
-      ) {
-        await db.execute(
-          `
-          INSERT INTO settings
-          (
-            setting_key,
-            setting_value
-          )
-          VALUES (?, ?)
-
-          ON DUPLICATE KEY UPDATE
-            setting_value=VALUES(setting_value)
-          `,
-          [
-            key,
-            JSON.stringify(value),
-          ]
-        );
-      }
-
-      return res.json(
-        req.body || {}
-      );
-    } catch (error) {
-      next(error);
+// Only supported institute preferences may be changed, atomically, by an owner.
+app.patch("/api/settings", auth, ownerOnly, async (req, res, next) => {
+  let connection;
+  try {
+    const values = req.body;
+    const fields = { academyName: "string", email: "string", branch: "string", followUpReminder: "boolean", duplicateMobileCheck: "boolean" };
+    if (!values || Array.isArray(values) || typeof values !== "object" ||
+        Object.entries(values).some(([key, value]) => !Object.hasOwn(fields, key) || typeof value !== fields[key] ||
+          (typeof value === "string" && value.length > 150)) ||
+        (values.academyName !== undefined && !values.academyName.trim())) {
+      return res.status(400).json({ message: "Invalid settings. Check the institute details and preferences." });
     }
-  }
-);
+    connection = await db.getConnection();
+    await connection.beginTransaction();
+    for (const [key, value] of Object.entries(values)) {
+      await connection.execute(
+        "INSERT INTO settings (setting_key, setting_value) VALUES (?, ?) ON DUPLICATE KEY UPDATE setting_value=VALUES(setting_value)",
+        [key, JSON.stringify(value)]
+      );
+    }
+    await connection.commit();
+    res.json(values);
+  } catch (error) {
+    if (connection) await connection.rollback();
+    next(error);
+  } finally { if (connection) connection.release(); }
+});
 
 // ============================================================
 // DATABASE INITIALIZATION
@@ -3381,7 +3114,7 @@ async function initializeSchema() {
       "ENOTFOUND"
     ) {
       throw new Error(
-        `Database host "${DB_CONFIG.host}" could not be resolved. ` +
+        "Database host could not be resolved. " +
           "Update DATABASE_URL (or DB_HOST) in Render with the current MySQL endpoint.",
         {
           cause: error,
@@ -3506,11 +3239,10 @@ async function initializeSchema() {
       `
       SELECT COLUMN_NAME
       FROM INFORMATION_SCHEMA.COLUMNS
-      WHERE TABLE_SCHEMA=?
+      WHERE TABLE_SCHEMA=DATABASE()
         AND TABLE_NAME='students'
         AND COLUMN_NAME='next_followup_date'
-      `,
-      [DB_CONFIG.database]
+      `
     );
 
   if (
@@ -3812,244 +3544,7 @@ async function initializeSchema() {
 // ============================================================
 
 async function ensureDefaultOwner() {
-  try {
-    const username =
-      String(
-        process.env.OWNER_USERNAME || ""
-      ).trim();
-
-    const password =
-      String(
-        process.env.OWNER_PASSWORD || ""
-      ).trim();
-
-    const name =
-      String(
-        process.env.OWNER_NAME ||
-          "SCOT IT Academy Owner"
-      ).trim();
-
-    console.log(
-      "Owner configuration:",
-      {
-        username,
-        passwordConfigured:
-          Boolean(password),
-        passwordLength:
-          password.length,
-        name,
-      }
-    );
-
-    if (!username || !password) {
-      console.error(
-        "OWNER_USERNAME or OWNER_PASSWORD is missing."
-      );
-
-      console.error(
-        "Add OWNER_USERNAME and OWNER_PASSWORD to Render Environment Variables."
-      );
-
-      return false;
-    }
-
-    const usernameUser =
-      await first(
-        `
-        SELECT
-          id,
-          username,
-          role
-        FROM users
-        WHERE LOWER(username)=LOWER(?)
-        LIMIT 1
-        `,
-        [username]
-      );
-
-    if (
-      usernameUser &&
-      String(
-        usernameUser.role || ""
-      ).toLowerCase() !==
-        "owner"
-    ) {
-      console.error(
-        `Username "${username}" is already used by another user.`
-      );
-
-      return false;
-    }
-
-    let owner =
-      await first(
-        `
-        SELECT
-          id,
-          username,
-          name,
-          role,
-          password_hash
-        FROM users
-        WHERE role='Owner'
-           OR LOWER(username)=LOWER(?)
-        ORDER BY
-          (role='Owner') DESC,
-          id ASC
-        LIMIT 1
-        `,
-        [username]
-      );
-
-    if (!owner) {
-      const passwordHash =
-        await bcrypt.hash(
-          password,
-          12
-        );
-
-      try {
-        const [result] =
-          await db.execute(
-            `
-            INSERT INTO users
-            (
-              username,
-              password_hash,
-              name,
-              role
-            )
-            VALUES (?, ?, ?, 'Owner')
-            `,
-            [
-              username,
-              passwordHash,
-              name,
-            ]
-          );
-
-        console.log(
-          `Owner created successfully. ID: ${result.insertId}`
-        );
-
-        return true;
-      } catch (insertError) {
-        if (
-          insertError?.code ===
-          "ER_DUP_ENTRY"
-        ) {
-          owner =
-            await first(
-              `
-              SELECT
-                id,
-                username,
-                name,
-                role,
-                password_hash
-              FROM users
-              WHERE LOWER(username)=LOWER(?)
-              LIMIT 1
-              `,
-              [username]
-            );
-        } else {
-          throw insertError;
-        }
-      }
-    }
-
-    let updateRequired =
-      false;
-
-    const currentUsername =
-      String(
-        owner.username || ""
-      ).trim();
-
-    if (
-      currentUsername.toLowerCase() !==
-      username.toLowerCase()
-    ) {
-      updateRequired = true;
-    }
-
-    const currentName =
-      String(
-        owner.name || ""
-      ).trim();
-
-    if (
-      currentName !== name
-    ) {
-      updateRequired = true;
-    }
-
-    let passwordMatches =
-      false;
-
-    if (owner.password_hash) {
-      try {
-        passwordMatches =
-          await bcrypt.compare(
-            password,
-            owner.password_hash
-          );
-      } catch {
-        passwordMatches =
-          false;
-      }
-    }
-
-    if (!passwordMatches) {
-      updateRequired = true;
-    }
-
-    if (updateRequired) {
-      const passwordHash =
-        passwordMatches
-          ? owner.password_hash
-          : await bcrypt.hash(
-              password,
-              12
-            );
-
-      await db.execute(
-        `
-        UPDATE users
-        SET
-          username=?,
-          password_hash=?,
-          name=?
-        WHERE id=?
-          AND role='Owner'
-        `,
-        [
-          username,
-          passwordHash,
-          name,
-          owner.id,
-        ]
-      );
-
-      console.log(
-        "Owner synchronized successfully."
-      );
-    } else {
-      console.log(
-        `Owner already synchronized: ${username}`
-      );
-    }
-
-    return true;
-  } catch (error) {
-    console.error(
-      "Failed to create/synchronize Owner:",
-      error
-    );
-
-    throw error;
-  }
+  await ensureOwner(db, process.env);
 }
 
 // ============================================================
@@ -4081,6 +3576,10 @@ app.use(
     );
 
     console.error(error);
+
+    if (error.status === 400) {
+      return res.status(400).json({ message: error.message });
+    }
 
     if (
       error?.code ===

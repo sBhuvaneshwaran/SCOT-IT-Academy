@@ -1,6 +1,6 @@
 import React from "react";
 import { BrowserRouter, Routes, Route, Navigate, Outlet } from "react-router-dom";
-import { getAccessToken } from "./services/api";
+import { getAccessToken, getCurrentUser } from "./services/api";
 import Login from "./pages/Login";
 import Signup from "./pages/Signup";
 import ForgotPassword from "./pages/ForgotPassword";
@@ -15,14 +15,11 @@ import Admins from "./pages/Admins";
 import Categories from "./pages/Categories";
 import Settings from "./pages/Settings";
 
-const demoUser = { username: "owner", name: "SCOT IT Academy Owner", role: "Owner" };
-
 function Protected() {
   const token = getAccessToken();
-  const storedUser = localStorage.getItem("scot_it_current_user");
-  const user = storedUser ? JSON.parse(storedUser) : demoUser;
+  const user = getCurrentUser();
 
-  return token ? <Layout user={user} /> : <Navigate to="/login" replace />;
+  return token && user ? <Layout user={user} /> : <Navigate to="/login" replace />;
 }
 
 function OwnerOnly() {

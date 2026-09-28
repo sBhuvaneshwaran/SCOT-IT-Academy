@@ -1,3 +1,4 @@
+import { ResponsiveTable } from "../components/Ui";
 import React, {
   useEffect,
   useMemo,
@@ -593,18 +594,13 @@ export default function Students() {
   // When 2027 arrives, 2027 is automatically added to the dropdown!
   // ====================================================
 
-  const START_YEAR = 2026;
-
   const yearOptions = useMemo(() => {
-    const years = [];
-    const endYear = Math.max(START_YEAR, currentDate.year);
-
-    for (let y = START_YEAR; y <= endYear; y++) {
-      years.push(y);
-    }
-
-    return years;
-  }, [currentDate.year]);
+    const recordedYears = students.map(student => Number(String(student.joinDate || "").slice(0, 4)))
+      .filter(year => Number.isInteger(year) && year >= 1900 && year <= 9999);
+    const firstYear = Math.min(2026, currentDate.year, ...recordedYears);
+    const lastYear = Math.max(currentDate.year, ...recordedYears);
+    return Array.from({ length: lastYear - firstYear + 1 }, (_, index) => firstYear + index);
+  }, [students, currentDate.year]);
 
   // ====================================================
   // MONTH OPTIONS (AUTOMATIC UP TO CURRENT MONTH FOR CURRENT YEAR)
@@ -735,8 +731,8 @@ export default function Students() {
   }, []);
 
   // ====================================================
-  // STUDENTS WITH FORMATTED SCOT-001 IDs (ORDER-WISE)
-  // Numbered sequentially starting with SCOT-001, SCOT-002, etc.
+  // STUDENTS WITH PERSISTED IDS
+  // Keep identifiers stable across filtering, pagination and deletion.
   // ====================================================
 
   const studentsWithIds = useMemo(() => {
@@ -753,9 +749,8 @@ export default function Students() {
           String(b.joinDate || "")
         );
       })
-      .map((student, index) => {
-        const orderNumber = index + 1;
-        const displayStudentId = `SCOT-${String(orderNumber).padStart(3, "0")}`;
+      .map((student) => {
+        const displayStudentId = student.studentId || student.id;
 
         return {
           ...student,
@@ -837,6 +832,10 @@ export default function Students() {
   // ====================================================
   // PAGINATION
   // ====================================================
+
+  useEffect(() => {
+    setPage(current => Math.min(current, Math.max(1, Math.ceil(filteredStudents.length / 10))));
+  }, [filteredStudents.length]);
 
   const visibleStudents = filteredStudents.slice(
     (page - 1) * 10,
@@ -1297,13 +1296,11 @@ export default function Students() {
     loadCategories();
     setEditingStudent(null);
 
-    // Predict next sequential ID
-    const nextIndex = studentsWithIds.length + 1;
-    const nextStudentId = `SCOT-${String(nextIndex).padStart(3, "0")}`;
+    // The API assigns the next SCOT ID when the record is saved.
 
     setForm({
       ...initialForm,
-      studentId: nextStudentId,
+      studentId: "",
       category: "",
       status: "Active",
     });
@@ -1311,6 +1308,17 @@ export default function Students() {
     setFormOpen(true);
     setMessage("");
   }
+
+  useEffect(() => {
+    if (!formOpen && !selected) return;
+    const previous = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const onKey = event => {
+      if (event.key === "Escape" && !saving) { setFormOpen(false); setSelected(null); }
+    };
+    document.addEventListener("keydown", onKey);
+    return () => { document.body.style.overflow = previous; document.removeEventListener("keydown", onKey); };
+  }, [formOpen, selected, saving]);
 
   // ====================================================
   // OVERALL STATUS CHECK
@@ -1429,6 +1437,7 @@ export default function Students() {
           >
             <input
               type="text"
+              aria-label="Search students"
               placeholder="Search ID (SCOT-001), name, course, mobile..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
@@ -1472,6 +1481,7 @@ export default function Students() {
             }}
           >
             <select
+              id="student-year" aria-label="Year"
               value={selectedYear}
               onChange={(event) => {
                 const val = event.target.value;
@@ -1502,6 +1512,7 @@ export default function Students() {
             }}
           >
             <select
+              id="student-month" aria-label="Month"
               value={selectedMonth}
               onChange={(event) => {
                 const val = event.target.value;
@@ -1545,13 +1556,13 @@ export default function Students() {
             {exportingExcel
               ? "Exporting..."
               : isOverall
-              ? "📊 Download Overall Excel"
-              : "📊 Download Excel"}
+              ? "Download Overall Excel"
+              : "Download Excel"}
           </button>
         </div>
 
         <div className="students-table-wrapper">
-          <table className="students-table">
+          <ResponsiveTable className="students-table">
             <thead>
               <tr>
                 {/* 1. STUDENT ID */}
@@ -1714,28 +1725,28 @@ export default function Students() {
                           <button
                             type="button"
                             className="icon-btn view-action"
-                            title="View"
+                            title="View" aria-label={`View ${student.name}`}
                             onClick={() => openView(student)}
                           >
-                            👁
+                            View
                           </button>
 
                           <button
                             type="button"
                             className="icon-btn edit-action"
-                            title="Edit"
+                            title="Edit" aria-label={`Edit ${student.name}`}
                             onClick={() => openEdit(student)}
                           >
-                            ✎
+                            Edit
                           </button>
 
                           <button
                             type="button"
                             className="icon-btn delete-btn"
-                            title="Delete"
+                            title="Delete" aria-label={`Delete ${student.name}`}
                             onClick={() => remove(student)}
                           >
-                            🗑
+                            Delete
                           </button>
                         </div>
                       </td>
@@ -1775,12 +1786,13 @@ export default function Students() {
                 </tr>
               )}
             </tbody>
-          </table>
+          </ResponsiveTable>
         </div>
 
         <Pagination
           page={page}
           setPage={setPage}
+          perPage={10}
           total={filteredStudents.length}
         />
       </Panel>
@@ -1811,6 +1823,7 @@ export default function Students() {
         >
           <form
             className="modal edit-modal students-modal"
+            role="dialog" aria-modal="true" aria-label={editingStudent ? "Edit student" : "Add student"}
             onSubmit={addStudent}
             onClick={(event) => event.stopPropagation()}
           >
@@ -1831,7 +1844,7 @@ export default function Students() {
 
               <button
                 type="button"
-                className="modal-close"
+                className="modal-close" aria-label="Close student form"
                 onClick={closeForm}
               >
                 ×
@@ -1841,17 +1854,17 @@ export default function Students() {
             <div className="form-grid">
               {/* STUDENT ID */}
               <div className="form-group">
-                <label>
+                <label htmlFor="student-studentId">
                   Student ID
                 </label>
 
                 <input
-                  name="studentId"
+                  name="studentId" id="student-studentId"
                   value={form.studentId ?? ""}
                   type="text"
                   readOnly
                   disabled
-                  placeholder="e.g. SCOT-001"
+                  placeholder="Auto generated on save"
                   style={{
                     backgroundColor: "#f3f4f6",
                     cursor: "not-allowed",
@@ -1876,12 +1889,12 @@ export default function Students() {
 
               {/* NAME */}
               <div className="form-group">
-                <label>
+                <label htmlFor="student-name">
                   Student Name *
                 </label>
 
                 <input
-                  name="name"
+                  name="name" id="student-name"
                   value={form.name ?? ""}
                   onChange={change}
                   type="text"
@@ -1892,12 +1905,12 @@ export default function Students() {
 
               {/* COURSE */}
               <div className="form-group">
-                <label>
+                <label htmlFor="student-course">
                   Course *
                 </label>
 
                 <input
-                  name="course"
+                  name="course" id="student-course"
                   value={form.course ?? ""}
                   onChange={change}
                   type="text"
@@ -1908,12 +1921,12 @@ export default function Students() {
 
               {/* MOBILE */}
               <div className="form-group">
-                <label>
+                <label htmlFor="student-mobile">
                   Mobile Number
                 </label>
 
                 <input
-                  name="mobile"
+                  name="mobile" id="student-mobile"
                   value={form.mobile ?? ""}
                   onChange={change}
                   type="tel"
@@ -1923,12 +1936,12 @@ export default function Students() {
 
               {/* EMAIL */}
               <div className="form-group">
-                <label>
+                <label htmlFor="student-email">
                   Email
                 </label>
 
                 <input
-                  name="email"
+                  name="email" id="student-email"
                   value={form.email ?? ""}
                   onChange={change}
                   type="email"
@@ -1938,12 +1951,12 @@ export default function Students() {
 
               {/* CITY */}
               <div className="form-group">
-                <label>
+                <label htmlFor="student-city">
                   City
                 </label>
 
                 <input
-                  name="city"
+                  name="city" id="student-city"
                   value={form.city ?? ""}
                   onChange={change}
                   type="text"
@@ -1953,12 +1966,12 @@ export default function Students() {
 
               {/* TOTAL FEE */}
               <div className="form-group">
-                <label>
+                <label htmlFor="student-totalFee">
                   Total Fee *
                 </label>
 
                 <input
-                  name="totalFee"
+                  name="totalFee" id="student-totalFee"
                   value={form.totalFee ?? ""}
                   onChange={change}
                   type="number"
@@ -1970,12 +1983,12 @@ export default function Students() {
 
               {/* PAID FEE */}
               <div className="form-group">
-                <label>
+                <label htmlFor="student-paidFee">
                   Paid Fee *
                 </label>
 
                 <input
-                  name="paidFee"
+                  name="paidFee" id="student-paidFee"
                   value={form.paidFee ?? ""}
                   onChange={change}
                   type="number"
@@ -1988,12 +2001,12 @@ export default function Students() {
 
               {/* BALANCE FEE */}
               <div className="form-group">
-                <label>
+                <label htmlFor="student-balanceFee">
                   Balance Fee
                 </label>
 
                 <input
-                  name="balanceFee"
+                  name="balanceFee" id="student-balanceFee"
                   value={calculateBalanceFee(
                     form.totalFee,
                     form.paidFee
@@ -2021,12 +2034,12 @@ export default function Students() {
 
               {/* CATEGORY */}
               <div className="form-group">
-                <label>
+                <label htmlFor="student-category">
                   Category *
                 </label>
 
                 <select
-                  name="category"
+                  name="category" id="student-category"
                   value={form.category || ""}
                   onChange={change}
                   required
@@ -2047,13 +2060,13 @@ export default function Students() {
 
               {/* JOIN DATE */}
               <div className="form-group">
-                <label>
+                <label htmlFor="student-joinDate">
                   Join Date *
                 </label>
 
                 <input
                   type="date"
-                  name="joinDate"
+                  name="joinDate" id="student-joinDate"
                   value={form.joinDate || ""}
                   onChange={change}
                   required
@@ -2062,13 +2075,13 @@ export default function Students() {
 
               {/* DUE DATE */}
               <div className="form-group">
-                <label>
+                <label htmlFor="student-dueDate">
                   Due Date
                 </label>
 
                 <input
                   type="date"
-                  name="dueDate"
+                  name="dueDate" id="student-dueDate"
                   value={form.dueDate || ""}
                   onChange={change}
                 />
@@ -2076,13 +2089,13 @@ export default function Students() {
 
               {/* NEXT FOLLOW-UP DATE */}
               <div className="form-group">
-                <label>
+                <label htmlFor="student-nextFollowUpDate">
                   Next Follow-up Date
                 </label>
 
                 <input
                   type="date"
-                  name="nextFollowUpDate"
+                  name="nextFollowUpDate" id="student-nextFollowUpDate"
                   value={form.nextFollowUpDate || ""}
                   onChange={change}
                 />
@@ -2090,12 +2103,12 @@ export default function Students() {
 
               {/* STATUS */}
               <div className="form-group">
-                <label>
+                <label htmlFor="student-status">
                   Status *
                 </label>
 
                 <select
-                  name="status"
+                  name="status" id="student-status"
                   value={form.status || "Active"}
                   onChange={change}
                   required
@@ -2161,6 +2174,7 @@ export default function Students() {
         >
           <div
             className="student-detail-content"
+            role="dialog" aria-modal="true" aria-label="Student details"
             onClick={(event) => event.stopPropagation()}
           >
             <div className="student-modal-header">

@@ -12,16 +12,7 @@ import { Panel } from "../components/Ui";
 // No Refer By API required
 // ======================================================
 
-const REFERRED_BY_OPTIONS = [
-  "Staff Referral",
-  "Dhana Ref",
-  "Website Cal",
-  "Direct Visit",
-  "OT Old Students",
-  "SCOT Students",
-  "Social media",
-  "Others",
-];
+import { REFERRED_BY_OPTIONS } from "../data/referralOptions";
 
 // ======================================================
 // INITIAL FORM

@@ -178,3 +178,36 @@ export function Pagination({
     </div>
   );
 }
+// Keep one table for desktop and mobile so both views expose the same actions.
+function tableText(node) {
+  return React.Children.toArray(node).map(child =>
+    React.isValidElement(child) ? tableText(child.props.children) : String(child)
+  ).join(" ").trim();
+}
+
+export function ResponsiveTable({ children, className = "", ...props }) {
+  const sections = React.Children.toArray(children);
+  const head = sections.find(section => section.type === "thead");
+  const headerRow = React.Children.toArray(head?.props.children)[0];
+  const labels = React.Children.toArray(headerRow?.props.children).map(cell => tableText(cell.props.children));
+
+  return <table {...props} role="table" className={`responsive-table ${className}`}>
+    {sections.map(section => {
+      if (section.type !== "tbody") return section;
+      return React.cloneElement(section, { role: "rowgroup" }, React.Children.map(section.props.children, row => {
+        if (!React.isValidElement(row) || row.type !== "tr") return row;
+        return React.cloneElement(row, { role: "row" }, React.Children.map(row.props.children, (cell, index) => {
+          if (!React.isValidElement(cell) || cell.type !== "td") return cell;
+          const spanning = Number(cell.props.colSpan || 1) > 1;
+          return React.cloneElement(cell, {
+            role: "cell",
+            className: `${cell.props.className || ""} ${spanning ? "mobile-full-cell" : ""}`,
+          }, <>
+            {!spanning && <span className="mobile-cell-label" aria-hidden="true">{labels[index]}</span>}
+            <div className="cell-value">{cell.props.children}</div>
+          </>);
+        }));
+      }));
+    })}
+  </table>;
+}
