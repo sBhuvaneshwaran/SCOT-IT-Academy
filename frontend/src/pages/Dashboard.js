@@ -1320,6 +1320,30 @@ export default function Dashboard() {
         .filter(
           student => {
 
+            const status = String(
+              student.status ||
+              student.final_status ||
+              student.finalStatus ||
+              ""
+            ).trim().toLowerCase();
+
+            // Only Active students should show; exclude Inactive, Placed, and Closed
+            if (
+              status === "inactive" ||
+              status === "placed" ||
+              status === "closed"
+            ) {
+              return false;
+            }
+
+            if (
+              status &&
+              status !== "active" &&
+              status !== "joined"
+            ) {
+              return false;
+            }
+
             const dueDate =
               getDateValue(
                 student.dueDate

@@ -56,7 +56,7 @@ export default function App() {
             <Route path="/admins" element={<Admins />} />
           </Route>
           <Route path="/categories" element={<Categories />} />
-          <Route path="/refer-by" element={<Navigate to="/enquiry-list" replace />} />
+          <Route path="/refer-by" element={<Navigate to="/dashboard" replace />} />
           <Route element={<OwnerOnly />}>
             <Route path="/settings" element={<Settings />} />
           </Route>

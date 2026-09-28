@@ -710,7 +710,7 @@ body {
 .table-panel {
   overflow:hidden
 }
-.table-scroll {
+.table-scroll, .students-table-wrapper {
   width:100%;
   overflow-x:auto
 }

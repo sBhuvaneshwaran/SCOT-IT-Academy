@@ -55,6 +55,27 @@ export default function Layout({user}) {
       return new Date(iso);
     };
 
+    const formatDisplayDate = (val) => {
+      if (!val) return "today";
+      const str = String(val).trim();
+      if (/^\d{4}-\d{2}-\d{2}/.test(str)) {
+        const [y, m, d] = str.substring(0, 10).split("-");
+        return `${d}/${m}/${y}`;
+      }
+      return str;
+    };
+
+    const isStudentActive = (status) => {
+      const s = String(status || "").trim().toLowerCase();
+      if (s === "inactive" || s === "placed" || s === "closed") {
+        return false;
+      }
+      if (s && s !== "active" && s !== "joined") {
+        return false;
+      }
+      return true;
+    };
+
     const isExpiredOverdue = (row) => {
       const balance = toNumber(
         row.balance_fee ??
@@ -78,7 +99,15 @@ export default function Layout({user}) {
       if (!dueDate || Number.isNaN(dueDate.getTime())) return false;
       if (!(balance > 0)) return false;
 
-      return dueDate < new Date();
+      // Status check: must not be Inactive, Placed, or Closed
+      if (!isStudentActive(row.status || row.final_status || row.finalStatus)) {
+        return false;
+      }
+
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      return dueDate < today;
     };
 
     Promise.allSettled([
@@ -98,17 +127,46 @@ export default function Layout({user}) {
         ? (studentResult.value?.data?.results || studentResult.value?.data || [])
         : [];
 
+      // Map students to their exact status
+      const studentStatusMap = new Map();
+      studentRows.forEach((s) => {
+        const rawStatus = s.status || s.final_status || s.finalStatus || "Active";
+        if (s.id) studentStatusMap.set(String(s.id).toLowerCase(), rawStatus);
+        if (s.studentId) studentStatusMap.set(String(s.studentId).toLowerCase(), rawStatus);
+        if (s.student_id) studentStatusMap.set(String(s.student_id).toLowerCase(), rawStatus);
+        if (s.mobile) studentStatusMap.set(String(s.mobile).toLowerCase().replace(/\D/g, ""), rawStatus);
+        if (s.mobile_no) studentStatusMap.set(String(s.mobile_no).toLowerCase().replace(/\D/g, ""), rawStatus);
+        const nameCourse = `${String(s.name || s.candidate_name || "").toLowerCase()}-${String(s.course || "").toLowerCase()}`;
+        if (nameCourse !== "-") studentStatusMap.set(nameCourse, rawStatus);
+      });
+
       const rows = [
         ...notificationRows,
         ...studentRows
-      ].filter((row) => row && (row.name || row.candidate_name || row.student_name)).map((row) => ({
-        ...row,
-        name: row.name || row.candidate_name || row.student_name,
-        pending_fee: row.pending_fee ?? row.pendingFee ?? row.balance_fee ?? row.balanceFee ?? row.amount_due ?? row.due_amount,
-        paid_fee: row.paid_fee ?? row.paidFee ?? row.paid_fee ?? row.paidFee,
-        due_date: row.due_date ?? row.dueDate ?? row.next_followup_date ?? row.nextFollowupDate ?? row.date,
-        mobile: row.mobile || row.mobile_no || ""
-      }));
+      ].filter((row) => row && (row.name || row.candidate_name || row.student_name)).map((row) => {
+        const idKey = String(row.id || row.studentId || row.student_id || "").toLowerCase();
+        const mobileKey = String(row.mobile || row.mobile_no || "").toLowerCase().replace(/\D/g, "");
+        const nameCourseKey = `${String(row.name || row.candidate_name || "").toLowerCase()}-${String(row.course || "").toLowerCase()}`;
+
+        const resolvedStatus =
+          (idKey && studentStatusMap.get(idKey)) ||
+          (mobileKey && studentStatusMap.get(mobileKey)) ||
+          (nameCourseKey && studentStatusMap.get(nameCourseKey)) ||
+          row.status ||
+          row.final_status ||
+          row.finalStatus ||
+          "Active";
+
+        return {
+          ...row,
+          status: resolvedStatus,
+          name: row.name || row.candidate_name || row.student_name,
+          pending_fee: row.pending_fee ?? row.pendingFee ?? row.balance_fee ?? row.balanceFee ?? row.amount_due ?? row.due_amount,
+          paid_fee: row.paid_fee ?? row.paidFee ?? row.paid_fee ?? row.paidFee,
+          due_date: row.due_date ?? row.dueDate ?? row.next_followup_date ?? row.nextFollowupDate ?? row.date,
+          mobile: row.mobile || row.mobile_no || ""
+        };
+      });
 
       const uniqueRows = Array.from(
         new Map(
@@ -124,13 +182,18 @@ export default function Layout({user}) {
 
       const overdue = uniqueRows
         .filter((row) => isExpiredOverdue(row))
+        .sort((a, b) => {
+          const dateA = normalizeDueDate(a.due_date ?? a.dueDate ?? a.date) || 0;
+          const dateB = normalizeDueDate(b.due_date ?? b.dueDate ?? b.date) || 0;
+          return dateA - dateB;
+        })
         .map((row) => ({
           ...row,
           name: row.name || row.candidate_name || row.student_name,
           mobile: row.mobile || row.mobile_no || "",
           pending_fee: row.pending_fee ?? row.pendingFee ?? row.balance_fee ?? row.balanceFee ?? row.amount_due ?? row.due_amount ?? "Not recorded",
           paid_fee: row.paid_fee ?? row.paidFee ?? row.paid_fee ?? "Not recorded",
-          due_date: row.due_date ?? row.dueDate ?? row.next_followup_date ?? row.nextFollowupDate ?? row.date ?? "today"
+          due_date: formatDisplayDate(row.due_date ?? row.dueDate ?? row.next_followup_date ?? row.nextFollowupDate ?? row.date)
         }));
 
       setNotifications(overdue);

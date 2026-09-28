@@ -545,17 +545,16 @@ Admin passwords are stored as bcrypt hashes when updated.
 Referral sources are a fixed dropdown in Add Enquiry and Edit Enquiry.
 Both forms use REFERRED_BY_OPTIONS from frontend/src/data/referralOptions.js:
 
-Google
-Instagram
-Facebook
-WhatsApp
-Friend
-Existing Student
-Walk-in
-Website
-Justdial
+Staff Referral
+Dhana Ref
+Website Cal
+Direct Visit
+OT Old Students
+SCOT Students
+Social media
+Others
 
-There is no separate Refer By management page. An enquiry's selected source
+New enquiries default to Direct Visit. There is no separate Refer By management page. An enquiry's selected source
 is saved in its referred_by database field. Older records with custom sources
 keep their saved value when edited. Edit the shared constant to change defaults.
 

@@ -755,12 +755,14 @@ app.post(
 
       const { paid, balance, total } = studentFees(b);
 
-      const studentId =
-        text(
-          b.studentId ??
-            b.student_id
-        ) ||
-        `ST-${Date.now()}`;
+      let studentId = text(b.studentId ?? b.student_id);
+      if (!studentId) {
+        const row = await first(`
+          SELECT COALESCE(MAX(CAST(SUBSTRING(student_id, 6) AS UNSIGNED)), 0) AS lastNumber
+          FROM students WHERE student_id REGEXP '^SCOT-[0-9]+$'
+        `);
+        studentId = `SCOT-${String(Number(row.lastNumber) + 1).padStart(3, "0")}`;
+      }
 
       const dueDate =
         dateOnly(
@@ -2978,10 +2980,11 @@ app.get(
             total_fee AS totalFee,
             due_date AS dueDate,
             balance_fee AS pending_fee,
-            'Due' AS status
+            status
           FROM students
           WHERE due_date<CURDATE()
             AND balance_fee>0
+            AND LOWER(TRIM(COALESCE(status, ''))) IN ('active', 'joined', '')
           ORDER BY due_date
           `
         );
